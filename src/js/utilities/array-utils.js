@@ -4,43 +4,35 @@
 
 "use strict";
 
-/*** Imports ***/
-var papaya = papaya || {};
-papaya.utilities = papaya.utilities || {};
-papaya.utilities.ArrayUtils = papaya.utilities.ArrayUtils || {};
+export class ArrayUtils {
 
-
-/*** Static Methods ***/
-
-// http://stackoverflow.com/questions/966225/how-can-i-create-a-two-dimensional-array-in-javascript
-papaya.utilities.ArrayUtils.createArray = function (length) {
+  // http://stackoverflow.com/questions/966225/how-can-i-create-a-two-dimensional-array-in-javascript
+  static createArray(length) {
     var arr = new Array(length || 0),
-        ctr;
+      ctr;
 
     if (arguments.length > 1) {
-        var args = Array.prototype.slice.call(arguments, 1);
-        for (ctr = 0; ctr < length; ctr += 1) {
-            arr[ctr] = papaya.utilities.ArrayUtils.createArray.apply(this, args);
-        }
+      var args = Array.prototype.slice.call(arguments, 1);
+      for (ctr = 0; ctr < length; ctr += 1) {
+        arr[ctr] = papaya.utilities.ArrayUtils.createArray.apply(this, args);
+      }
     }
 
     return arr;
-};
+  };
 
-
-papaya.utilities.ArrayUtils.contains = function (a, obj) {
+  static contains(a, obj) {
     var i = a.length;
     while (i--) {
-        if (a[i] === obj) {
-            return true;
-        }
+      if (a[i] === obj) {
+        return true;
+      }
     }
     return false;
-};
+  };
 
-
-// https://stackoverflow.com/questions/281264/remove-empty-elements-from-an-array-in-javascript
-papaya.utilities.ArrayUtils.cleanArray = function (actual) {
+  // https://stackoverflow.com/questions/281264/remove-empty-elements-from-an-array-in-javascript
+  static cleanArray(actual) {
     var newArray = new Array();
     for (var i = 0; i < actual.length; i++) {
         if (actual[i]) {
@@ -48,10 +40,9 @@ papaya.utilities.ArrayUtils.cleanArray = function (actual) {
         }
     }
     return newArray;
-};
+  };
 
-
-/*** Array (Prototype Methods) ***/
+}
 
 // http://stackoverflow.com/questions/2294703/multidimensional-array-cloning-using-javascript
 Array.prototype.clone = function () {

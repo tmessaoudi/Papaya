@@ -7,3 +7,4 @@ release.sh
 /tests/build/**/
 .jshint*
 juelich/
+node_modules

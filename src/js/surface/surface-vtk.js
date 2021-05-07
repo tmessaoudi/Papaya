@@ -4,123 +4,117 @@
 
 "use strict";
 
-/*** Imports ***/
-var papaya = papaya || {};
-papaya.surface = papaya.surface || {};
+export class SurfaceVTK {
+  constructor() {
+    this.error = null;
+    this.onFinishedRead = null;
+    this.dv = null;
+    this.index = 0;
+    this.littleEndian = true;
+    this.numPoints = 0;
+    this.pointData = null;
+    this.triangleData = null;
+    this.normalsData = null;
+    this.colorsData = null;
+    this.vtkVersion = null;
+    this.description = null;
+    this.ascii = false;
+    this.volume = null;
+    this.done = false;
+    this.headerRead = false;
+  }
 
+  static MAGIC_NUMBER = "# vtk DataFile Version";
+  static MAGIC_NUMBER_ASCII = "ASCII";
+  static MAGIC_NUMBER_DATASET = "DATASET";
+  static MAGIC_NUMBER_POLYDATA = "POLYDATA";
+  static MAGIC_NUMBER_POINTS = "POINTS";
+  static MAGIC_NUMBER_POLYGONS = "POLYGONS";
+  static MAGIC_NUMBER_NORMALS = "NORMALS";
 
-/*** Constructor ***/
-papaya.surface.SurfaceVTK = papaya.surface.SurfaceVTK || function () {
-        this.error = null;
-        this.onFinishedRead = null;
-        this.dv = null;
-        this.index = 0;
-        this.littleEndian = true;
-        this.numPoints = 0;
-        this.pointData = null;
-        this.triangleData = null;
-        this.normalsData = null;
-        this.colorsData = null;
-        this.vtkVersion = null;
-        this.description = null;
-        this.ascii = false;
-        this.volume = null;
-        this.done = false;
-        this.headerRead = false;
-    };
-
-
-/*** Constants ***/
-
-papaya.surface.SurfaceVTK.MAGIC_NUMBER = "# vtk DataFile Version";
-papaya.surface.SurfaceVTK.MAGIC_NUMBER_ASCII = "ASCII";
-papaya.surface.SurfaceVTK.MAGIC_NUMBER_DATASET = "DATASET";
-papaya.surface.SurfaceVTK.MAGIC_NUMBER_POLYDATA = "POLYDATA";
-papaya.surface.SurfaceVTK.MAGIC_NUMBER_POINTS = "POINTS";
-papaya.surface.SurfaceVTK.MAGIC_NUMBER_POLYGONS = "POLYGONS";
-papaya.surface.SurfaceVTK.MAGIC_NUMBER_NORMALS = "NORMALS";
-
-
-/*** Static Methods ***/
-
-papaya.surface.SurfaceVTK.isThisFormat = function (filename) {
+  static isThisFormat(filename) {
     return filename.endsWith(".vtk");
-};
+  }
 
-
-
-/*** Prototype Methods ***/
-
-papaya.surface.SurfaceVTK.prototype.isSurfaceDataBinary = function () {
+  isSurfaceDataBinary() {
     return true;
-};
+  }
 
-
-
-papaya.surface.SurfaceVTK.prototype.hasOverlay = function () {
+  hasOverlay() {
     return false;
-};
+  }
 
-
-
-papaya.surface.SurfaceVTK.prototype.getNextLine = function (limit) {
-    var ctr, val, array = [];
+  getNextLine(limit) {
+    var ctr,
+      val,
+      array = [];
 
     if (!limit) {
-        limit = 256;
+      limit = 256;
     }
 
     for (ctr = 0; ctr < limit; ctr += 1) {
-        if (this.index >= this.dv.byteLength) {
-            this.done = true;
-            break;
-        }
+      if (this.index >= this.dv.byteLength) {
+        this.done = true;
+        break;
+      }
 
-        val = this.dv.getUint8(this.index++);
-        if (val < 32) { // newline
-            if ((!this.headerRead || this.ascii) && (this.index < this.dv.byteLength) && (this.dv.getUint8(this.index) < 32)) {
-                this.index++;
-            }
-            break;
+      val = this.dv.getUint8(this.index++);
+      if (val < 32) {
+        // newline
+        if (
+          (!this.headerRead || this.ascii) &&
+          this.index < this.dv.byteLength &&
+          this.dv.getUint8(this.index) < 32
+        ) {
+          this.index++;
         }
+        break;
+      }
 
-        array[ctr] = val;
+      array[ctr] = val;
     }
 
     return String.fromCharCode.apply(null, array);
-};
+  }
 
-
-
-papaya.surface.SurfaceVTK.prototype.readData = function (data, progress, onFinishedRead, volume) {
-    var surf = this, section;
+  readData(data, progress, onFinishedRead, volume) {
+    var surf = this,
+      section;
     progress(0.2);
 
     this.onFinishedRead = onFinishedRead;
     this.dv = new DataView(data);
     this.volume = volume;
 
-    this.vtkVersion = this.getNextLine().substring(papaya.surface.SurfaceVTK.MAGIC_NUMBER.length).trim();
+    this.vtkVersion = this.getNextLine()
+      .substring(SurfaceVTK.MAGIC_NUMBER.length)
+      .trim();
     this.description = this.getNextLine().trim();
-    this.ascii = (this.getNextLine() == papaya.surface.SurfaceVTK.MAGIC_NUMBER_ASCII);
-    this.datasetType = this.getNextLine().substring(papaya.surface.SurfaceVTK.MAGIC_NUMBER_DATASET.length).trim();
+    this.ascii =
+      this.getNextLine() == SurfaceVTK.MAGIC_NUMBER_ASCII;
+    this.datasetType = this.getNextLine()
+      .substring(SurfaceVTK.MAGIC_NUMBER_DATASET.length)
+      .trim();
 
     this.headerRead = true;
 
-    if (this.datasetType != papaya.surface.SurfaceVTK.MAGIC_NUMBER_POLYDATA) {
-        this.error = new Error("VTK: Only POLYDATA format is currently supported!");
-        this.onFinishedRead();
+    if (this.datasetType != SurfaceVTK.MAGIC_NUMBER_POLYDATA) {
+      this.error = new Error(
+        "VTK: Only POLYDATA format is currently supported!"
+      );
+      this.onFinishedRead();
     }
 
     section = this.getNextLine().split(" ");
-    if (section[0] == papaya.surface.SurfaceVTK.MAGIC_NUMBER_POINTS) {
-        setTimeout(function() { surf.readDataPoints(surf, section[1], progress); }, 0);
+    if (section[0] == SurfaceVTK.MAGIC_NUMBER_POINTS) {
+      setTimeout(function () {
+        surf.readDataPoints(surf, section[1], progress);
+      }, 0);
     }
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.readNextData = function (surf, progress) {
+  readNextData(surf, progress) {
     var section, progressCount = 0.2;
 
     if (surf.pointData) {
@@ -142,21 +136,19 @@ papaya.surface.SurfaceVTK.prototype.readNextData = function (surf, progress) {
     } else {
         section = this.getNextLine().split(" ");
 
-        if (section && (section[0] == papaya.surface.SurfaceVTK.MAGIC_NUMBER_POINTS)) {
+        if (section && (section[0] == SurfaceVTK.MAGIC_NUMBER_POINTS)) {
             setTimeout(function() { surf.readDataPoints(surf, section[1], progress); }, 0);
-        } else if (section && (section[0] == papaya.surface.SurfaceVTK.MAGIC_NUMBER_POLYGONS)) {
+        } else if (section && (section[0] == SurfaceVTK.MAGIC_NUMBER_POLYGONS)) {
             setTimeout(function() { surf.readDataTriangles(surf, section[1], progress); }, 0);
-        } else if (section && (section[0] == papaya.surface.SurfaceVTK.MAGIC_NUMBER_NORMALS)) {
+        } else if (section && (section[0] == SurfaceVTK.MAGIC_NUMBER_NORMALS)) {
             setTimeout(function() { surf.readDataNormals(surf, progress); }, 0);
         } else {
             setTimeout(function() { surf.readNextData(surf, progress); }, 0);
         }
     }
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.readDataPoints = function (surf, numPoints, progress) {
+  readDataPoints(surf, numPoints, progress) {
     var ctr, compIndex = 0, comps = [], parts, pointIndex = 0, numPointsVals = numPoints * 3;
 
     surf.numPoints = numPoints;
@@ -208,11 +200,9 @@ papaya.surface.SurfaceVTK.prototype.readDataPoints = function (surf, numPoints, 
     }
 
     surf.readNextData(surf, progress);
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.readDataNormals = function (surf, progress) {
+  readDataNormals(surf, progress) {
     var ctr, parts, normalsIndex = 0, numNormalsVals = surf.numPoints * 3;
 
     surf.normalsData = new Float32Array(numNormalsVals);
@@ -232,11 +222,9 @@ papaya.surface.SurfaceVTK.prototype.readDataNormals = function (surf, progress) 
     }
 
     surf.readNextData(surf, progress);
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.readDataTriangles = function (surf, numTriangles, progress) {
+  readDataTriangles(surf, numTriangles, progress) {
     var ctr, parts, triIndex = 0, numIndexVals = numTriangles * 3;
 
     surf.triangleData = new Uint32Array(numIndexVals);
@@ -258,52 +246,37 @@ papaya.surface.SurfaceVTK.prototype.readDataTriangles = function (surf, numTrian
     }
 
     surf.readNextData(surf, progress);
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.getColorsData = function () {
+  getColorsData() {
     return null;
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.getNumSurfaces = function () {
+  getNumSurfaces() {
     return 1;
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.getNumPoints = function () {
+  getNumPoints() {
     return this.pointData.length / 3;
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.getNumTriangles = function () {
+  getNumTriangles() {
     return this.triangleData.length / 3;
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.getSolidColor = function () {
+  getSolidColor() {
     return this.solidColor;
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.getPointData = function () {
+  getPointData() {
     return this.pointData;
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.getNormalsData = function () {
+  getNormalsData = function () {
     return this.normalsData;
-};
+  };
 
-
-
-papaya.surface.SurfaceVTK.prototype.getTriangleData = function () {
+  getTriangleData = function () {
     return this.triangleData;
-};
+  };
+}

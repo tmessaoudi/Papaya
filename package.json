@@ -21,5 +21,14 @@
   "bugs": {
     "url": "https://github.com/rii-mango/Papaya/issues"
   },
-  "homepage": "https://github.com/rii-mango/Papaya"
+  "homepage": "https://github.com/rii-mango/Papaya",
+  "dependencies": {
+    "bowser": "^2.11.0",
+    "daikon": "^1.2.42",
+    "gifti-reader-js": "^0.4.4",
+    "gl-matrix": "^3.3.0",
+    "jquery": "^3.6.0",
+    "nifti-reader-js": "^0.5.4",
+    "pako": "^2.0.3"
+  }
 }

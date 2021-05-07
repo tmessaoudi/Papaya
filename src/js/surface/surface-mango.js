@@ -4,186 +4,169 @@
 
 "use strict";
 
-/*** Imports ***/
-var papaya = papaya || {};
-papaya.surface = papaya.surface || {};
+export class SurfaceMango {
+  constructor() {
+    this.error = null;
+    this.onFinishedRead = null;
+    this.origin = [];
+    this.imageDims = [];
+    this.voxelDims = [];
+    this.center = [];
+    this.diffs = [];
+    this.dv = null;
+    this.index = 0;
+    this.surfaceIndex = 0;
+    this.dataLength = 0;
+    this.numSurfaces = 0;
+    this.littleEndian = false;
+    this.surfaces = [];
+    this.v14 = false;
+    this.v15 = false;
+  }
 
+  static MAGIC_NUMBER_LITTLE_1_5 = ["m", "a", "n", "g", "o", "l", "1", "5"];
+  static MAGIC_NUMBER_BIG_1_5 = ["m", "a", "n", "g", "o", "b", "1", "5"];
+  static MAGIC_NUMBER_LITTLE_1_4 = ["m", "a", "n", "g", "o", "l", "1", "4"];
+  static MAGIC_NUMBER_BIG_1_4 = ["m", "a", "n", "g", "o", "b", "1", "4"];
+  static SURFACE_OVERLAY_MAGIC_NUMBER = [0, 0, 0, 0, "s", "c", "a", "l"];
+  static NAME_SIZE = 64;
 
-/*** Constructor ***/
-papaya.surface.SurfaceMango = papaya.surface.SurfaceMango || function () {
-        this.error = null;
-        this.onFinishedRead = null;
-        this.origin = [];
-        this.imageDims = [];
-        this.voxelDims = [];
-        this.center = [];
-        this.diffs = [];
-        this.dv = null;
-        this.index = 0;
-        this.surfaceIndex = 0;
-        this.dataLength = 0;
-        this.numSurfaces = 0;
-        this.littleEndian = false;
-        this.surfaces = [];
-        this.v14 = false;
-        this.v15 = false;
-    };
-
-
-
-papaya.surface.SurfaceMangoData = papaya.surface.SurfaceMangoData || function () {
-        this.pointData = null;
-        this.triangleData = null;
-        this.normalsData = null;
-        this.colorsData = null;
-        this.solidColor = [];
-    };
-
-
-/*** Constants ***/
-
-papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_5 = [ 'm', 'a', 'n', 'g', 'o', 'l', '1', '5' ];
-papaya.surface.SurfaceMango.MAGIC_NUMBER_BIG_1_5 = [ 'm', 'a', 'n', 'g', 'o', 'b', '1', '5' ];
-papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_4 = [ 'm', 'a', 'n', 'g', 'o', 'l', '1', '4' ];
-papaya.surface.SurfaceMango.MAGIC_NUMBER_BIG_1_4 = [ 'm', 'a', 'n', 'g', 'o', 'b', '1', '4' ];
-papaya.surface.SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER = [ 0, 0, 0, 0, 's', 'c', 'a', 'l' ];
-papaya.surface.SurfaceMango.NAME_SIZE = 64;
-
-
-
-/*** Static Methods ***/
-
-papaya.surface.SurfaceMango.isThisFormat = function (filename) {
+  static isThisFormat(filename) {
     return filename.endsWith(".surf");
-};
+  }
 
-
-
-/*** Prototype Methods ***/
-
-papaya.surface.SurfaceMango.prototype.isSurfaceDataBinary = function () {
+  isSurfaceDataBinary() {
     return true;
-};
+  }
 
+  isLittleEndian15(data) {
+    var data2 = new Uint8Array(data),
+      ctr;
 
-
-papaya.surface.SurfaceMango.prototype.isLittleEndian15 = function (data) {
-    var data2 = new Uint8Array(data), ctr;
-
-    for (ctr = 0; ctr < papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_5.length; ctr += 1) {
-        if (data2[ctr] !== papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_5[ctr].charCodeAt(0)) {
-            return false;
-        }
+    for (ctr = 0; ctr < SurfaceMango.MAGIC_NUMBER_LITTLE_1_5.length; ctr += 1) {
+      if (
+        data2[ctr] !== SurfaceMango.MAGIC_NUMBER_LITTLE_1_5[ctr].charCodeAt(0)
+      ) {
+        return false;
+      }
     }
 
     return true;
-};
+  }
 
+  isLittleEndian14(data) {
+    var data2 = new Uint8Array(data),
+      ctr;
 
-
-papaya.surface.SurfaceMango.prototype.isLittleEndian14 = function (data) {
-    var data2 = new Uint8Array(data), ctr;
-
-    for (ctr = 0; ctr < papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_4.length; ctr += 1) {
-        if (data2[ctr] !== papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_4[ctr].charCodeAt(0)) {
-            return false;
-        }
+    for (ctr = 0; ctr < SurfaceMango.MAGIC_NUMBER_LITTLE_1_4.length; ctr += 1) {
+      if (
+        data2[ctr] !== SurfaceMango.MAGIC_NUMBER_LITTLE_1_4[ctr].charCodeAt(0)
+      ) {
+        return false;
+      }
     }
 
     return true;
-};
+  }
 
+  isVersion15(data) {
+    var data2 = new Uint8Array(data),
+      ctr,
+      match = true;
 
-papaya.surface.SurfaceMango.prototype.isVersion15 = function (data) {
-    var data2 = new Uint8Array(data), ctr, match = true;
-
-    for (ctr = 0; ctr < papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_5.length; ctr += 1) {
-        if (data2[ctr] !== papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_5[ctr].charCodeAt(0)) {
-            match = false;
-            break;
-        }
+    for (ctr = 0; ctr < SurfaceMango.MAGIC_NUMBER_LITTLE_1_5.length; ctr += 1) {
+      if (
+        data2[ctr] !== SurfaceMango.MAGIC_NUMBER_LITTLE_1_5[ctr].charCodeAt(0)
+      ) {
+        match = false;
+        break;
+      }
     }
 
     if (!match) {
-        match = true;
+      match = true;
 
-        for (ctr = 0; ctr < papaya.surface.SurfaceMango.MAGIC_NUMBER_BIG_1_5.length; ctr += 1) {
-            if (data2[ctr] !== papaya.surface.SurfaceMango.MAGIC_NUMBER_BIG_1_5[ctr].charCodeAt(0)) {
-                match = false;
-                break;
-            }
+      for (ctr = 0; ctr < SurfaceMango.MAGIC_NUMBER_BIG_1_5.length; ctr += 1) {
+        if (
+          data2[ctr] !== SurfaceMango.MAGIC_NUMBER_BIG_1_5[ctr].charCodeAt(0)
+        ) {
+          match = false;
+          break;
         }
+      }
     }
 
     return match;
-};
+  }
 
+  isVersion14(data) {
+    var data2 = new Uint8Array(data),
+      ctr,
+      match = true;
 
-
-papaya.surface.SurfaceMango.prototype.isVersion14 = function (data) {
-    var data2 = new Uint8Array(data), ctr, match = true;
-
-    for (ctr = 0; ctr < papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_4.length; ctr += 1) {
-        if (data2[ctr] !== papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_4[ctr].charCodeAt(0)) {
-            match = false;
-            break;
-        }
+    for (ctr = 0; ctr < SurfaceMango.MAGIC_NUMBER_LITTLE_1_4.length; ctr += 1) {
+      if (
+        data2[ctr] !== SurfaceMango.MAGIC_NUMBER_LITTLE_1_4[ctr].charCodeAt(0)
+      ) {
+        match = false;
+        break;
+      }
     }
 
     if (!match) {
-        match = true;
+      match = true;
 
-        for (ctr = 0; ctr < papaya.surface.SurfaceMango.MAGIC_NUMBER_BIG_1_4.length; ctr += 1) {
-            if (data2[ctr] !== papaya.surface.SurfaceMango.MAGIC_NUMBER_BIG_1_4[ctr].charCodeAt(0)) {
-                match = false;
-                break;
-            }
+      for (ctr = 0; ctr < SurfaceMango.MAGIC_NUMBER_BIG_1_4.length; ctr += 1) {
+        if (
+          data2[ctr] !== SurfaceMango.MAGIC_NUMBER_BIG_1_4[ctr].charCodeAt(0)
+        ) {
+          match = false;
+          break;
         }
+      }
     }
 
     return match;
-};
+  }
 
-
-papaya.surface.SurfaceMango.prototype.isLittleEndian = function (data) {
+  isLittleEndian(data) {
     return this.isLittleEndian15(data) || this.isLittleEndian14(data);
-};
+  }
 
-
-
-papaya.surface.SurfaceMango.prototype.hasOverlay = function () {
+  hasOverlay() {
     var ctr, val;
 
-    for (ctr = 0; ctr < papaya.surface.SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER.length; ctr += 1) {
-        val = papaya.surface.SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER[ctr];
+    for (
+      ctr = 0;
+      ctr < SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER.length;
+      ctr += 1
+    ) {
+      val = SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER[ctr];
 
-        if (val) {
-            val = papaya.surface.SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER[ctr].charCodeAt(0);
-        }
+      if (val) {
+        val = SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER[ctr].charCodeAt(0);
+      }
 
-        if (this.dv.getUint8(this.index + ctr) !== val) {
-            return false;
-        }
+      if (this.dv.getUint8(this.index + ctr) !== val) {
+        return false;
+      }
     }
 
     return true;
-};
+  }
 
-
-
-papaya.surface.SurfaceMango.prototype.getString = function (length) {
-    var ctr, array = [];
+  getString(length) {
+    var ctr,
+      array = [];
 
     for (ctr = 0; ctr < length; ctr += 1) {
-        array[ctr] = this.dv.getUint8(this.index + ctr);
+      array[ctr] = this.dv.getUint8(this.index + ctr);
     }
 
-    return String.fromCharCode.apply(null, array)
-};
+    return String.fromCharCode.apply(null, array);
+  }
 
-
-
-papaya.surface.SurfaceMango.prototype.readData = function (data, progress, onFinishedRead) {
+  readData(data, progress, onFinishedRead) {
     var previewLength;
 
     progress(0.2);
@@ -192,57 +175,71 @@ papaya.surface.SurfaceMango.prototype.readData = function (data, progress, onFin
     this.dataLength = data.byteLength;
     this.v14 = this.isVersion14(data);
     this.v15 = this.isVersion15(data);
-    this.index = papaya.surface.SurfaceMango.MAGIC_NUMBER_LITTLE_1_5.length;
+    this.index = SurfaceMango.MAGIC_NUMBER_LITTLE_1_5.length;
     this.dv = new DataView(data);
 
     if (!(this.v14 || this.v15)) {
-        throw new Error("Only Mango surface format version 1.4 and 1.5 are supported!");
+      throw new Error(
+        "Only Mango surface format version 1.4 and 1.5 are supported!"
+      );
     }
 
     this.onFinishedRead = onFinishedRead;
 
-    previewLength = this.dv.getUint32(this.index, this.littleEndian); this.index += 4;
-    this.numSurfaces = this.dv.getUint32(this.index, this.littleEndian); this.index += 4;
-    this.index += (16 * 8); // angle state
+    previewLength = this.dv.getUint32(this.index, this.littleEndian);
+    this.index += 4;
+    this.numSurfaces = this.dv.getUint32(this.index, this.littleEndian);
+    this.index += 4;
+    this.index += 16 * 8; // angle state
 
-    this.imageDims[0] = this.dv.getUint32(this.index, this.littleEndian); this.index += 4;
-    this.imageDims[1] = this.dv.getUint32(this.index, this.littleEndian); this.index += 4;
-    this.imageDims[2] = this.dv.getUint32(this.index, this.littleEndian); this.index += 4;
+    this.imageDims[0] = this.dv.getUint32(this.index, this.littleEndian);
+    this.index += 4;
+    this.imageDims[1] = this.dv.getUint32(this.index, this.littleEndian);
+    this.index += 4;
+    this.imageDims[2] = this.dv.getUint32(this.index, this.littleEndian);
+    this.index += 4;
 
-    this.voxelDims[0] = this.dv.getFloat32(this.index, this.littleEndian); this.index += 4;
-    this.voxelDims[1] = this.dv.getFloat32(this.index, this.littleEndian); this.index += 4;
-    this.voxelDims[2] = this.dv.getFloat32(this.index, this.littleEndian); this.index += 4;
+    this.voxelDims[0] = this.dv.getFloat32(this.index, this.littleEndian);
+    this.index += 4;
+    this.voxelDims[1] = this.dv.getFloat32(this.index, this.littleEndian);
+    this.index += 4;
+    this.voxelDims[2] = this.dv.getFloat32(this.index, this.littleEndian);
+    this.index += 4;
 
-    this.origin[0] = this.dv.getFloat32(this.index, this.littleEndian) * this.voxelDims[0]; this.index += 4;
-    this.origin[1] = this.dv.getFloat32(this.index, this.littleEndian) * this.voxelDims[1]; this.index += 4;
-    this.origin[2] = this.dv.getFloat32(this.index, this.littleEndian) * this.voxelDims[2]; this.index += 4;
+    this.origin[0] =
+      this.dv.getFloat32(this.index, this.littleEndian) * this.voxelDims[0];
+    this.index += 4;
+    this.origin[1] =
+      this.dv.getFloat32(this.index, this.littleEndian) * this.voxelDims[1];
+    this.index += 4;
+    this.origin[2] =
+      this.dv.getFloat32(this.index, this.littleEndian) * this.voxelDims[2];
+    this.index += 4;
 
-    this.center[0] = ((this.imageDims[0] * this.voxelDims[0]) / 2.0);
-    this.center[1] = ((this.imageDims[1] * this.voxelDims[1]) / 2.0);
-    this.center[2] = ((this.imageDims[2] * this.voxelDims[2]) / 2.0);
+    this.center[0] = (this.imageDims[0] * this.voxelDims[0]) / 2.0;
+    this.center[1] = (this.imageDims[1] * this.voxelDims[1]) / 2.0;
+    this.center[2] = (this.imageDims[2] * this.voxelDims[2]) / 2.0;
 
     if (this.v14) {
-        this.diffs[0] = this.center[0] - this.origin[0];
-        this.diffs[1] = this.center[1] - this.origin[1];
-        this.diffs[2] = this.origin[2] - this.center[2];
+      this.diffs[0] = this.center[0] - this.origin[0];
+      this.diffs[1] = this.center[1] - this.origin[1];
+      this.diffs[2] = this.origin[2] - this.center[2];
     } else {
-        this.diffs[0] = this.center[0] - this.origin[0];
-        this.diffs[1] = this.center[1] - this.origin[1];
-        this.diffs[2] = this.center[2] - this.origin[2];
+      this.diffs[0] = this.center[0] - this.origin[0];
+      this.diffs[1] = this.center[1] - this.origin[1];
+      this.diffs[2] = this.center[2] - this.origin[2];
     }
 
     this.index += 4; // threshold
     this.index += previewLength;
 
     this.readNextSurface(this, progress);
-};
+  }
 
+  readNextSurface(surf, progress) {
+    var surfData = new SurfaceMangoData();
 
-
-papaya.surface.SurfaceMango.prototype.readNextSurface = function (surf, progress) {
-    var surfData = new papaya.surface.SurfaceMangoData();
-
-    surf.index += papaya.surface.SurfaceMango.NAME_SIZE;
+    surf.index += SurfaceMango.NAME_SIZE;
     surf.surfaces[surf.surfaceIndex] = surfData;
 
     surf.surfaces[surf.surfaceIndex].solidColor[0] = surf.dv.getFloat32(surf.index, surf.littleEndian);  surf.index += 4;
@@ -250,11 +247,9 @@ papaya.surface.SurfaceMango.prototype.readNextSurface = function (surf, progress
     surf.surfaces[surf.surfaceIndex].solidColor[2] = surf.dv.getFloat32(surf.index, surf.littleEndian);  surf.index += 4;
 
     setTimeout(function() { surf.readDataPoints(surf, progress); }, 0);
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.readDataPoints = function (surf, progress) {
+  readDataPoints(surf, progress) {
     var numPointVals, ctr;
 
     progress(0.4);
@@ -280,9 +275,7 @@ papaya.surface.SurfaceMango.prototype.readDataPoints = function (surf, progress)
     setTimeout(function() { surf.readDataNormals(surf, progress); }, 0);
 };
 
-
-
-papaya.surface.SurfaceMango.prototype.readDataNormals = function (surf, progress) {
+  readDataNormals(surf, progress) {
     var numNormalVals, ctr;
 
     progress(0.6);
@@ -304,11 +297,9 @@ papaya.surface.SurfaceMango.prototype.readDataNormals = function (surf, progress
     }
 
     setTimeout(function() { surf.readDataTriangles(surf, progress); }, 0);
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.readDataTriangles = function (surf, progress) {
+  readDataTriangles(surf, progress) {
     var numIndexVals, ctr;
 
     progress(0.8);
@@ -321,19 +312,17 @@ papaya.surface.SurfaceMango.prototype.readDataTriangles = function (surf, progre
     }
 
     setTimeout(function() { surf.readDataColors(surf, progress); }, 0);
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.readDataColors = function (surf, progress) {
+  readDataColors(surf, progress) {
     var min, max, ratio, numScalars, length, scalars, val, scalar, colorTableName, ctr, colorTable, hasOverlay = false;
 
     while (surf.index < surf.dataLength) {
         if (surf.hasOverlay()) {
             hasOverlay = true;
-            surf.index += papaya.surface.SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER.length;
-            surf.index += papaya.surface.SurfaceMango.NAME_SIZE;
-            colorTableName = surf.getString(papaya.surface.SurfaceMango.NAME_SIZE); surf.index += papaya.surface.SurfaceMango.NAME_SIZE;
+            surf.index += SurfaceMango.SURFACE_OVERLAY_MAGIC_NUMBER.length;
+            surf.index += SurfaceMango.NAME_SIZE;
+            colorTableName = surf.getString(SurfaceMango.NAME_SIZE); surf.index += SurfaceMango.NAME_SIZE;
             colorTableName = colorTableName.replace(/\0/g, '');
 
             surf.index += 4; // alpha (ignore)
@@ -349,7 +338,8 @@ papaya.surface.SurfaceMango.prototype.readDataColors = function (surf, progress)
                 scalars[ctr] = surf.dv.getFloat32(surf.index, surf.littleEndian);
             }
 
-            if (papaya.viewer.ColorTable.findLUT(colorTableName) !== papaya.viewer.ColorTable.TABLE_GRAYSCALE) {
+            // !! Viewer ColorTable !!
+            if (papaya.viewer.ColorTable.findLUT(colorTableName) !== papaya.viewer.ColorTable.TABLE_GRAYSCALE) { 
                 colorTable = new papaya.viewer.ColorTable(colorTableName, false);
             } else {
                 colorTable = new papaya.viewer.ColorTable("Spectrum", false);
@@ -397,52 +387,47 @@ papaya.surface.SurfaceMango.prototype.readDataColors = function (surf, progress)
     } else {
         setTimeout(function() { surf.readNextSurface(surf, progress); }, 0);
     }
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.getNumSurfaces = function () {
+  getNumSurfaces() {
     return this.numSurfaces;
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.getNumPoints = function (index) {
+  getNumPoints(index) {
     return this.surfaces[index].pointData.length / 3;
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.getNumTriangles = function (index) {
+  getNumTriangles(index) {
     return this.surfaces[index].triangleData.length / 3;
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.getSolidColor = function (index) {
+  getSolidColor(index) {
     return this.surfaces[index].solidColor;
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.getPointData = function (index) {
+  getPointData(index) {
     return this.surfaces[index].pointData;
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.getNormalsData = function (index) {
+  getNormalsData(index) {
     return this.surfaces[index].normalsData;
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.getTriangleData = function (index) {
+  getTriangleData(index) {
     return this.surfaces[index].triangleData;
-};
+  };
 
-
-
-papaya.surface.SurfaceMango.prototype.getColorsData = function (index) {
+  getColorsData(index) {
     return this.surfaces[index].colorsData;
-};
+  };
+}
+
+export class SurfaceMangoData {
+  constructor() {
+    this.pointData = null;
+    this.triangleData = null;
+    this.normalsData = null;
+    this.colorsData = null;
+    this.solidColor = [];
+  }
+}

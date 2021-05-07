@@ -4,16 +4,9 @@
 
 "use strict";
 
-/*** Imports ***/
-var papaya = papaya || {};
-papaya.utilities = papaya.utilities || {};
-papaya.utilities.UrlUtils = papaya.utilities.UrlUtils || {};
-
-
-/*** Static Methods ***/
-
-// http://www.quirksmode.org/js/cookies.html
-papaya.utilities.UrlUtils.createCookie = function (name, value, days) {
+export class UrlUtils {
+  // http://www.quirksmode.org/js/cookies.html
+  static createCookie(name, value, days) {
     var date, expires;
 
     if (days) {
@@ -25,11 +18,9 @@ papaya.utilities.UrlUtils.createCookie = function (name, value, days) {
     }
 
     document.cookie = name + "=" + value + expires + "; path=/";
-};
+  };
 
-
-
-papaya.utilities.UrlUtils.readCookie = function (name) {
+  static readCookie(name) {
     var nameEQ, ca, i, c;
 
     nameEQ = name + "=";
@@ -47,18 +38,14 @@ papaya.utilities.UrlUtils.readCookie = function (name) {
     }
 
     return null;
-};
+  };
 
+  static eraseCookie(name) {
+    UrlUtils.createCookie(name, "", -1);
+  };
 
-
-papaya.utilities.UrlUtils.eraseCookie = function (name) {
-    papaya.utilities.UrlUtils.createCookie(name, "", -1);
-};
-
-
-
-// adapted from: http://stackoverflow.com/questions/979975/how-to-get-the-value-from-url-parameter
-papaya.utilities.UrlUtils.getQueryParams = function (params) {
+  // adapted from: http://stackoverflow.com/questions/979975/how-to-get-the-value-from-url-parameter
+  static getQueryParams(params) {
     /*jslint regexp: true */
     var tokens, qs, re = /[?&]?([^=]+)=([^&]*)/g;
 
@@ -72,11 +59,9 @@ papaya.utilities.UrlUtils.getQueryParams = function (params) {
             tokens = re.exec(qs);
         }
     }
-};
+  };
 
-
-
-papaya.utilities.UrlUtils.getAbsoluteUrl = function (protocol, relative) {
+  static getAbsoluteUrl(protocol, relative) {
     var base, link, host, path;
 
     base = window.location.href;
@@ -93,4 +78,6 @@ papaya.utilities.UrlUtils.getAbsoluteUrl = function (protocol, relative) {
 
 
     return (protocol + "://" + host + path);
-};
+  };
+
+}

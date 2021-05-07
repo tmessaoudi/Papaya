@@ -15,18 +15,22 @@
 
 "use strict";
 
-/*** Imports ***/
-var papaya = papaya || {};
+import * as constant from "./constants";
 
+import { UrlUtils, PlatformUtils, ObjectUtils, papayaRoundFast } from "./utilities";
+import { Surface } from "./surface";
+import { Coordinate } from "./core";
+
+import $ from "jquery"
+import daikon from "daikon";
 
 /*** Global Fields ***/
 var papayaContainers = [];
 var papayaLoadableImages = papayaLoadableImages || [];
 var papayaDroppedFiles = [];
 
-
-/*** Constructor ***/
-papaya.Container = papaya.Container || function (containerHtml) {
+export class Container {
+  constructor(containerHtml) {
     this.containerHtml = containerHtml;
     this.containerIndex = null;
     this.toolbarHtml = null;
@@ -61,12 +65,10 @@ papaya.Container = papaya.Container || function (containerHtml) {
     this.allowScroll = true;
     this.loadingComplete = null;
     this.resetComponents();
-};
+  }
 
-
-/*** Static Pseudo-constants ***/
-
-papaya.Container.LICENSE_TEXT = "<p>THIS PRODUCT IS NOT FOR CLINICAL USE.<br /><br />" +
+  static LICENSE_TEXT =
+    "<p>THIS PRODUCT IS NOT FOR CLINICAL USE.<br /><br />" +
     "This software is available for use, as is, free of charge.  The software and data derived from this software " +
     "may not be used for clinical purposes.<br /><br />" +
     "The authors of this software make no representations or warranties about the suitability of the software, " +
@@ -77,7 +79,8 @@ papaya.Container.LICENSE_TEXT = "<p>THIS PRODUCT IS NOT FOR CLINICAL USE.<br /><
     "By using this software, you agree to be bounded by the terms of this license.  If you do not agree to the terms " +
     "of this license, do not use this software.</p>";
 
-papaya.Container.KEYBOARD_REF_TEXT = "<span style='color:#B5CBD3'>[Spacebar]</span> Cycle the main slice view in a clockwise rotation.<br /><br />" +
+  static KEYBOARD_REF_TEXT =
+    "<span style='color:#B5CBD3'>[Spacebar]</span> Cycle the main slice view in a clockwise rotation.<br /><br />" +
     "<span style='color:#B5CBD3'>[Page Up]</span> or <span style='color:#B5CBD3'>[']</span> Increment the axial slice.<br /><br />" +
     "<span style='color:#B5CBD3'>[Page Down]</span> or <span style='color:#B5CBD3'>[/]</span> Decrement the axial slice.<br /><br />" +
     "<span style='color:#B5CBD3'>[Arrow Up]</span> and <span style='color:#B5CBD3'>[Arrow Down]</span> Increment/decrement the coronal slice.<br /><br />" +
@@ -89,63 +92,60 @@ papaya.Container.KEYBOARD_REF_TEXT = "<span style='color:#B5CBD3'>[Spacebar]</sp
     "<span style='color:#B5CBD3'>[c]</span> Navigate viewer to the center of the image.<br /><br />" +
     "<span style='color:#B5CBD3'>[a]</span> Toggle main crosshairs on/off.";
 
-papaya.Container.MOUSE_REF_TEXT = "<span style='color:#B5CBD3'>(Left-click and drag)</span> Change current coordinate.<br /><br />" +
+  static MOUSE_REF_TEXT =
+    "<span style='color:#B5CBD3'>(Left-click and drag)</span> Change current coordinate.<br /><br />" +
     "<span style='color:#B5CBD3'>[Alt](Left-click and drag)</span> Zoom in and out.<br /><br />" +
     "<span style='color:#B5CBD3'>[Alt](Double left-click)</span> Reset zoom.<br /><br />" +
     "<span style='color:#B5CBD3'>[Alt][Shift](Left-click and drag)</span> Pan zoomed image.<br /><br />" +
     "<span style='color:#B5CBD3'>(Right-click and drag)</span> Window level controls.<br /><br />" +
     "<span style='color:#B5CBD3'>(Scroll wheel)</span> See Preferences.<br /><br />";
 
-papaya.Container.DICOM_SUPPORT = true;
+  static DICOM_SUPPORT = true;
 
+  static syncViewers = false;
+  static syncViewersWorld = false;
+  static allowPropagation = false;
+  static papayaLastHoveredViewer = null;
+  static ignorePatterns = [/^[.]/];
+  static atlas = null;
+  static atlasWorldSpace = true;
 
-/*** Static Fields ***/
+  static restartViewer(index, refs, forceUrl, forceEncode, forceBinary) {
+    papayaContainers[index].viewer.restart(
+      refs,
+      forceUrl,
+      forceEncode,
+      forceBinary
+    );
+  }
 
-papaya.Container.syncViewers = false;
-papaya.Container.syncViewersWorld = false;
-papaya.Container.allowPropagation = false;
-papaya.Container.papayaLastHoveredViewer = null;
-papaya.Container.ignorePatterns = [/^[.]/];
-papaya.Container.atlas = null;
-papaya.Container.atlasWorldSpace = true;
-
-
-/*** Static Methods ***/
-
-papaya.Container.restartViewer = function (index, refs, forceUrl, forceEncode, forceBinary) {
-    papayaContainers[index].viewer.restart(refs, forceUrl, forceEncode, forceBinary);
-};
-
-
-
-papaya.Container.resetViewer = function (index, params) {
+  static resetViewer(index, params) {
     if (!params) {
-        params = papayaContainers[index].params;
+      params = papayaContainers[index].params;
 
-        if (params.loadedImages) {
-            params.images = params.loadedImages;
-        }
+      if (params.loadedImages) {
+        params.images = params.loadedImages;
+      }
 
-        if (params.loadedEncodedImages) {
-            params.encodedImages = params.loadedEncodedImages;
-        }
+      if (params.loadedEncodedImages) {
+        params.encodedImages = params.loadedEncodedImages;
+      }
 
-        if (params.loadedBinaryImages) {
-            params.binaryImages = params.loadedBinaryImages;
-        }
+      if (params.loadedBinaryImages) {
+        params.binaryImages = params.loadedBinaryImages;
+      }
 
+      if (params.loadedSurfaces) {
+        params.surfaces = params.loadedSurfaces;
+      }
 
-        if (params.loadedSurfaces) {
-            params.surfaces = params.loadedSurfaces;
-        }
+      if (params.loadedEncodedSurfaces) {
+        params.encodedSurfaces = params.loadedEncodedSurfaces;
+      }
 
-        if (params.loadedEncodedSurfaces) {
-            params.encodedSurfaces = params.loadedEncodedSurfaces;
-        }
-
-        if (params.loadedFiles) {
-            params.files = params.loadedFiles;
-        }
+      if (params.loadedFiles) {
+        params.files = params.loadedFiles;
+      }
     }
 
     papayaContainers[index].viewer.resetViewer();
@@ -155,70 +155,68 @@ papaya.Container.resetViewer = function (index, params) {
     papayaContainers[index].readGlobalParams();
     papayaContainers[index].rebuildContainer(params, index);
     papayaContainers[index].viewer.processParams(params);
-};
+  }
 
-
-
-papaya.Container.removeImage = function (index, imageIndex) {
+  static removeImage(index, imageIndex) {
     if (imageIndex < 1) {
-        console.log("Cannot remove the base image.  Try papaya.Container.resetViewer() instead.");
+      console.log(
+        "Cannot remove the base image.  Try papaya.Container.resetViewer() instead."
+      );
     }
 
     papayaContainers[index].viewer.removeOverlay(imageIndex);
-};
+  }
 
-
-
-papaya.Container.hideImage = function (index, imageIndex) {
+  static hideImage(index, imageIndex) {
     papayaContainers[index].viewer.screenVolumes[imageIndex].hidden = true;
     papayaContainers[index].viewer.drawViewer(true, false);
-};
+  }
 
-
-
-papaya.Container.showImage = function (index, imageIndex) {
+  static showImage(index, imageIndex) {
     papayaContainers[index].viewer.screenVolumes[imageIndex].hidden = false;
     papayaContainers[index].viewer.drawViewer(true, false);
-};
+  }
 
-
-
-papaya.Container.addImage = function (index, imageRef, imageParams) {
+  static addImage(index, imageRef, imageParams) {
     var imageRefs;
 
     if (imageParams) {
-        papayaContainers[index].params = $.extend({}, papayaContainers[index].params, imageParams);
+      papayaContainers[index].params = $.extend(
+        {},
+        papayaContainers[index].params,
+        imageParams
+      );
     }
 
     if (!(imageRef instanceof Array)) {
-        imageRefs = [];
-        imageRefs[0] = imageRef;
+      imageRefs = [];
+      imageRefs[0] = imageRef;
     } else {
-        imageRefs = imageRef;
+      imageRefs = imageRef;
     }
 
     if (papayaContainers[index].params.images) {
-        papayaContainers[index].viewer.loadImage(imageRefs, true, false, false);
-    } else if(papayaContainers[index].params.binaryImages) {
-        papayaContainers[index].viewer.loadImage(imageRefs, false, false, true);
+      papayaContainers[index].viewer.loadImage(imageRefs, true, false, false);
+    } else if (papayaContainers[index].params.binaryImages) {
+      papayaContainers[index].viewer.loadImage(imageRefs, false, false, true);
     } else if (papayaContainers[index].params.encodedImages) {
-        papayaContainers[index].viewer.loadImage(imageRefs, false, true, false);
+      papayaContainers[index].viewer.loadImage(imageRefs, false, true, false);
     }
-};
+  }
 
-
-
-papaya.Container.findParameters = function (containerHTML) {
-    var viewerHTML, paramsName, loadedParams = null;
+  static findParameters(containerHTML) {
+    var viewerHTML,
+      paramsName,
+      loadedParams = null;
 
     paramsName = containerHTML.data("params");
 
     if (!paramsName) {
-        viewerHTML = containerHTML.find("." + PAPAYA_VIEWER_CSS);
+      viewerHTML = containerHTML.find("." + constant.PAPAYA_VIEWER_CSS);
 
-        if (viewerHTML) {
-            paramsName = viewerHTML.data("params");
-        }
+      if (viewerHTML) {
+        paramsName = viewerHTML.data("params");
+      }
     }
 
     /*
@@ -228,316 +226,498 @@ papaya.Container.findParameters = function (containerHTML) {
      */
 
     if (paramsName) {
-        if (typeof paramsName === 'object') {
-            loadedParams = paramsName;
-        }
-        else if (window[paramsName]) {
-            loadedParams = window[paramsName];
-        }
+      if (typeof paramsName === "object") {
+        loadedParams = paramsName;
+      } else if (window[paramsName]) {
+        loadedParams = window[paramsName];
+      }
     }
 
     if (loadedParams) {
-        papaya.utilities.UrlUtils.getQueryParams(loadedParams);
+      UrlUtils.getQueryParams(loadedParams);
     }
 
     return loadedParams;
-};
+  }
 
-
-
-papaya.Container.fillContainerHTML = function (containerHTML, isDefault, params, replaceIndex) {
+  static fillContainerHTML(containerHTML, isDefault, params, replaceIndex) {
     var toolbarHTML, viewerHTML, displayHTML, index;
 
     if (isDefault) {
-        toolbarHTML = containerHTML.find("#" + PAPAYA_DEFAULT_TOOLBAR_ID);
-        viewerHTML = containerHTML.find("#" + PAPAYA_DEFAULT_VIEWER_ID);
-        displayHTML = containerHTML.find("#" + PAPAYA_DEFAULT_DISPLAY_ID);
+      toolbarHTML = containerHTML.find(
+        "#" + constant.PAPAYA_DEFAULT_TOOLBAR_ID
+      );
+      viewerHTML = containerHTML.find("#" + constant.PAPAYA_DEFAULT_VIEWER_ID);
+      displayHTML = containerHTML.find(
+        "#" + constant.PAPAYA_DEFAULT_DISPLAY_ID
+      );
 
-        if (toolbarHTML) {
-            toolbarHTML.addClass(PAPAYA_TOOLBAR_CSS);
-        } else {
-            containerHTML.prepend("<div class='" + PAPAYA_TOOLBAR_CSS + "' id='" +
-                PAPAYA_DEFAULT_TOOLBAR_ID + "'></div>");
-        }
+      if (toolbarHTML) {
+        toolbarHTML.addClass(constant.PAPAYA_TOOLBAR_CSS);
+      } else {
+        containerHTML.prepend(
+          "<div class='" +
+            constant.PAPAYA_TOOLBAR_CSS +
+            "' id='" +
+            constant.PAPAYA_DEFAULT_TOOLBAR_ID +
+            "'></div>"
+        );
+      }
 
-        if (viewerHTML) {
-            viewerHTML.addClass(PAPAYA_VIEWER_CSS);
-        } else {
-            $("<div class='" + PAPAYA_VIEWER_CSS + "' id='" +
-                PAPAYA_DEFAULT_VIEWER_ID + "'></div>").insertAfter($("#" + PAPAYA_DEFAULT_TOOLBAR_ID));
-        }
+      if (viewerHTML) {
+        viewerHTML.addClass(constant.PAPAYA_VIEWER_CSS);
+      } else {
+        $(
+          "<div class='" +
+            constant.PAPAYA_VIEWER_CSS +
+            "' id='" +
+            constant.PAPAYA_DEFAULT_VIEWER_ID +
+            "'></div>"
+        ).insertAfter($("#" + constant.PAPAYA_DEFAULT_TOOLBAR_ID));
+      }
 
-        if (displayHTML) {
-            displayHTML.addClass(PAPAYA_DISPLAY_CSS);
-        } else {
-            $("<div class='" + PAPAYA_DISPLAY_CSS + "' id='" +
-                PAPAYA_DEFAULT_DISPLAY_ID + "'></div>").insertAfter($("#" + PAPAYA_DEFAULT_VIEWER_ID));
-        }
+      if (displayHTML) {
+        displayHTML.addClass(constant.PAPAYA_DISPLAY_CSS);
+      } else {
+        $(
+          "<div class='" +
+            constant.PAPAYA_DISPLAY_CSS +
+            "' id='" +
+            constant.PAPAYA_DEFAULT_DISPLAY_ID +
+            "'></div>"
+        ).insertAfter($("#" + constant.PAPAYA_DEFAULT_VIEWER_ID));
+      }
 
-        console.log("This method of adding a Papaya container is deprecated.  " +
-            "Try simply <div class='papaya' data-params='params'></div> instead...");
+      console.log(
+        "This method of adding a Papaya container is deprecated.  " +
+          "Try simply <div class='papaya' data-params='params'></div> instead..."
+      );
     } else {
-        if (replaceIndex !== undefined) {
-            index = replaceIndex;
-        } else {
-            index = papayaContainers.length;
-        }
+      if (replaceIndex !== undefined) {
+        index = replaceIndex;
+      } else {
+        index = papayaContainers.length;
+      }
 
-        containerHTML.attr("id", PAPAYA_DEFAULT_CONTAINER_ID + index);
+      containerHTML.attr("id", constant.PAPAYA_DEFAULT_CONTAINER_ID + index);
 
-        if (!params || (params.kioskMode === undefined) || !params.kioskMode) {
-            containerHTML.append("<div id='" + (PAPAYA_DEFAULT_TOOLBAR_ID + index) +
-            "' class='" + PAPAYA_TOOLBAR_CSS + "'></div>");
-        }
+      if (!params || params.kioskMode === undefined || !params.kioskMode) {
+        containerHTML.append(
+          "<div id='" +
+            (constant.PAPAYA_DEFAULT_TOOLBAR_ID + index) +
+            "' class='" +
+            constant.PAPAYA_TOOLBAR_CSS +
+            "'></div>"
+        );
+      }
 
-        containerHTML.append("<div id='" + (PAPAYA_DEFAULT_VIEWER_ID + index) +
-            "' class='" + PAPAYA_VIEWER_CSS + "'></div>");
-        containerHTML.append("<div id='" + (PAPAYA_DEFAULT_DISPLAY_ID + index) +
-            "' class='" + PAPAYA_DISPLAY_CSS + "'></div>");
+      containerHTML.append(
+        "<div id='" +
+          (constant.PAPAYA_DEFAULT_VIEWER_ID + index) +
+          "' class='" +
+          constant.PAPAYA_VIEWER_CSS +
+          "'></div>"
+      );
+      containerHTML.append(
+        "<div id='" +
+          (constant.PAPAYA_DEFAULT_DISPLAY_ID + index) +
+          "' class='" +
+          constant.PAPAYA_DISPLAY_CSS +
+          "'></div>"
+      );
 
-        if (params && params.showControlBar && ((params.showControls === undefined) || params.showControls)) {
-            containerHTML.append(
-                "<div id='" + PAPAYA_KIOSK_CONTROLS_CSS + index + "' class='" + PAPAYA_KIOSK_CONTROLS_CSS + "'>" +
-                "<div id='" + (PAPAYA_DEFAULT_SLIDER_ID + index) + "main" + "' class='" + PAPAYA_SLIDER_CSS + " " + PAPAYA_CONTROL_MAIN_SLIDER + "'>" +
-                "<span class='" + PAPAYA_CONTROL_BAR_LABELS_CSS+ "'>Slice: </span>" + " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>+</button>" + " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>-</button> "  +
-                "</div>" +
+      if (
+        params &&
+        params.showControlBar &&
+        (params.showControls === undefined || params.showControls)
+      ) {
+        containerHTML.append(
+          "<div id='" +
+            constant.PAPAYA_KIOSK_CONTROLS_CSS +
+            index +
+            "' class='" +
+            constant.PAPAYA_KIOSK_CONTROLS_CSS +
+            "'>" +
+            "<div id='" +
+            (constant.PAPAYA_DEFAULT_SLIDER_ID + index) +
+            "main" +
+            "' class='" +
+            constant.PAPAYA_SLIDER_CSS +
+            " " +
+            constant.PAPAYA_CONTROL_MAIN_SLIDER +
+            "'>" +
+            "<span class='" +
+            constant.PAPAYA_CONTROL_BAR_LABELS_CSS +
+            "'>Slice: </span>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>+</button>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>-</button> " +
+            "</div>" +
+            "<div id='" +
+            (constant.PAPAYA_DEFAULT_SLIDER_ID + index) +
+            "axial" +
+            "' class='" +
+            constant.PAPAYA_SLIDER_CSS +
+            " " +
+            constant.PAPAYA_CONTROL_DIRECTION_SLIDER +
+            "'>" +
+            "<span class='" +
+            constant.PAPAYA_CONTROL_BAR_LABELS_CSS +
+            "'>Axial: </span>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>+</button>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>-</button> " +
+            "</div>" +
+            "<div id='" +
+            (constant.PAPAYA_DEFAULT_SLIDER_ID + index) +
+            "coronal" +
+            "' class='" +
+            constant.PAPAYA_SLIDER_CSS +
+            " " +
+            constant.PAPAYA_CONTROL_DIRECTION_SLIDER +
+            "'>" +
+            "<span class='" +
+            constant.PAPAYA_CONTROL_BAR_LABELS_CSS +
+            "'>Coronal: </span>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>+</button>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>-</button> " +
+            "</div>" +
+            "<div id='" +
+            (constant.PAPAYA_DEFAULT_SLIDER_ID + index) +
+            "sagittal" +
+            "' class='" +
+            constant.PAPAYA_SLIDER_CSS +
+            " " +
+            constant.PAPAYA_CONTROL_DIRECTION_SLIDER +
+            "'>" +
+            "<span class='" +
+            constant.PAPAYA_CONTROL_BAR_LABELS_CSS +
+            "'>Sagittal: </span>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>+</button>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>-</button> " +
+            "</div>" +
+            "<div id='" +
+            (constant.PAPAYA_DEFAULT_SLIDER_ID + index) +
+            "series" +
+            "' class='" +
+            constant.PAPAYA_SLIDER_CSS +
+            " " +
+            constant.PAPAYA_CONTROL_DIRECTION_SLIDER +
+            "'>" +
+            "<span class='" +
+            constant.PAPAYA_CONTROL_BAR_LABELS_CSS +
+            "'>Series: </span>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>&lt;</button>" +
+            " <button type='button' class='" +
+            constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS +
+            "'>&gt;</button> " +
+            "</div>" +
+            "&nbsp;&nbsp;&nbsp;" +
+            "<button type='button' " +
+            (params.kioskMode &&
+            (params.showImageButtons === undefined || params.showImageButtons)
+              ? ""
+              : "style='float:right;margin-left:5px;' ") +
+            "class='" +
+            constant.PAPAYA_CONTROL_SWAP_BUTTON_CSS +
+            "'>Swap View</button> " +
+            "<button type='button' " +
+            (params.kioskMode &&
+            (params.showImageButtons === undefined || params.showImageButtons)
+              ? ""
+              : "style='float:right;margin-left:5px;' ") +
+            "class='" +
+            constant.PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS +
+            "'>Go To Center</button> " +
+            "<button type='button' " +
+            (params.kioskMode &&
+            (params.showImageButtons === undefined || params.showImageButtons)
+              ? ""
+              : "style='float:right;margin-left:5px;' ") +
+            "class='" +
+            constant.PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS +
+            "'>Go To Origin</button> " +
+            "</div>"
+        );
 
-                "<div id='" + (PAPAYA_DEFAULT_SLIDER_ID + index) + "axial" + "' class='" + PAPAYA_SLIDER_CSS + " " + PAPAYA_CONTROL_DIRECTION_SLIDER + "'>" +
-                "<span class='" + PAPAYA_CONTROL_BAR_LABELS_CSS+ "'>Axial: </span>" + " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>+</button>" + " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>-</button> " +
-                "</div>" +
+        $("." + constant.PAPAYA_CONTROL_INCREMENT_BUTTON_CSS).prop(
+          "disabled",
+          true
+        );
+        $("." + constant.PAPAYA_CONTROL_SWAP_BUTTON_CSS).prop("disabled", true);
+        $("." + constant.PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS).prop(
+          "disabled",
+          true
+        );
+        $("." + constant.PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS).prop(
+          "disabled",
+          true
+        );
+      } else if (
+        params &&
+        (params.showControls === undefined || params.showControls)
+      ) {
+        containerHTML.append(
+          "<button type='button' id='" +
+            (constant.PAPAYA_CONTROL_MAIN_INCREMENT_BUTTON_CSS + index) +
+            "' class='" +
+            constant.PAPAYA_CONTROL_MAIN_INCREMENT_BUTTON_CSS +
+            "'>+</button> "
+        );
+        containerHTML.append(
+          "<button type='button' id='" +
+            (constant.PAPAYA_CONTROL_MAIN_DECREMENT_BUTTON_CSS + index) +
+            "' class='" +
+            constant.PAPAYA_CONTROL_MAIN_DECREMENT_BUTTON_CSS +
+            "'>-</button> "
+        );
+        containerHTML.append(
+          "<button type='button' id='" +
+            (constant.PAPAYA_CONTROL_MAIN_SWAP_BUTTON_CSS + index) +
+            "' class='" +
+            constant.PAPAYA_CONTROL_MAIN_SWAP_BUTTON_CSS +
+            "'>Swap View</button> "
+        );
+        containerHTML.append(
+          "<button type='button' id='" +
+            (constant.PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS + index) +
+            "' class='" +
+            constant.PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS +
+            "'>Go To Center</button> "
+        );
+        containerHTML.append(
+          "<button type='button' id='" +
+            (constant.PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS + index) +
+            "' class='" +
+            constant.PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS +
+            "'>Go To Origin</button> "
+        );
 
-                "<div id='" + (PAPAYA_DEFAULT_SLIDER_ID + index) + "coronal" + "' class='" + PAPAYA_SLIDER_CSS + " " + PAPAYA_CONTROL_DIRECTION_SLIDER + "'>" +
-                "<span class='" + PAPAYA_CONTROL_BAR_LABELS_CSS+ "'>Coronal: </span>" + " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>+</button>"+ " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>-</button> "  +
-                "</div>" +
-
-                "<div id='" + (PAPAYA_DEFAULT_SLIDER_ID + index) + "sagittal" + "' class='" + PAPAYA_SLIDER_CSS + " " + PAPAYA_CONTROL_DIRECTION_SLIDER + "'>" +
-                "<span class='" + PAPAYA_CONTROL_BAR_LABELS_CSS+ "'>Sagittal: </span>" + " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>+</button>"+ " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>-</button> "  +
-                "</div>" +
-
-                "<div id='" + (PAPAYA_DEFAULT_SLIDER_ID + index) + "series" + "' class='" + PAPAYA_SLIDER_CSS + " " + PAPAYA_CONTROL_DIRECTION_SLIDER + "'>" +
-                "<span class='" + PAPAYA_CONTROL_BAR_LABELS_CSS+ "'>Series: </span>" + " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>&lt;</button>"+ " <button type='button' class='" + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS + "'>&gt;</button> "  +
-                "</div>" +
-                "&nbsp;&nbsp;&nbsp;" +
-                "<button type='button' " + ((params.kioskMode && ((params.showImageButtons === undefined) || params.showImageButtons)) ? "" : "style='float:right;margin-left:5px;' ") + "class='" + PAPAYA_CONTROL_SWAP_BUTTON_CSS + "'>Swap View</button> " +
-                "<button type='button' " + ((params.kioskMode && ((params.showImageButtons === undefined) || params.showImageButtons)) ? "" : "style='float:right;margin-left:5px;' ") + "class='" + PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS + "'>Go To Center</button> " +
-                "<button type='button' " + ((params.kioskMode && ((params.showImageButtons === undefined) || params.showImageButtons)) ? "" : "style='float:right;margin-left:5px;' ") + "class='" + PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS + "'>Go To Origin</button> " +
-                "</div>");
-
-            $("." + PAPAYA_CONTROL_INCREMENT_BUTTON_CSS).prop('disabled', true);
-            $("." + PAPAYA_CONTROL_SWAP_BUTTON_CSS).prop('disabled', true);
-            $("." + PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS).prop('disabled', true);
-            $("." + PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS).prop('disabled', true);
-        } else if (params && ((params.showControls === undefined ) || params.showControls)) {
-            containerHTML.append("<button type='button' id='"+ (PAPAYA_CONTROL_MAIN_INCREMENT_BUTTON_CSS + index) + "' class='" + PAPAYA_CONTROL_MAIN_INCREMENT_BUTTON_CSS + "'>+</button> ");
-            containerHTML.append("<button type='button' id='"+ (PAPAYA_CONTROL_MAIN_DECREMENT_BUTTON_CSS + index) + "' class='" + PAPAYA_CONTROL_MAIN_DECREMENT_BUTTON_CSS + "'>-</button> ");
-            containerHTML.append("<button type='button' id='"+ (PAPAYA_CONTROL_MAIN_SWAP_BUTTON_CSS + index) + "' class='" + PAPAYA_CONTROL_MAIN_SWAP_BUTTON_CSS + "'>Swap View</button> ");
-            containerHTML.append("<button type='button' id='"+ (PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS + index) + "' class='" + PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS + "'>Go To Center</button> ");
-            containerHTML.append("<button type='button' id='"+ (PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS + index) + "' class='" + PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS + "'>Go To Origin</button> ");
-
-            $("#" + PAPAYA_CONTROL_MAIN_INCREMENT_BUTTON_CSS + index).css({display: "none"});
-            $("#" + PAPAYA_CONTROL_MAIN_DECREMENT_BUTTON_CSS + index).css({display: "none"});
-            $("#" + PAPAYA_CONTROL_MAIN_SWAP_BUTTON_CSS + index).css({display: "none"});
-            $("#" + PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS + index).css({display: "none"});
-            $("#" + PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS + index).css({display: "none"});
-        }
+        $("#" + constant.PAPAYA_CONTROL_MAIN_INCREMENT_BUTTON_CSS + index).css({
+          display: "none",
+        });
+        $("#" + constant.PAPAYA_CONTROL_MAIN_DECREMENT_BUTTON_CSS + index).css({
+          display: "none",
+        });
+        $("#" + constant.PAPAYA_CONTROL_MAIN_SWAP_BUTTON_CSS + index).css({
+          display: "none",
+        });
+        $(
+          "#" + constant.PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS + index
+        ).css({ display: "none" });
+        $(
+          "#" + constant.PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS + index
+        ).css({ display: "none" });
+      }
     }
 
     return viewerHTML;
-};
+  }
 
+  static buildContainer(containerHTML, params, replaceIndex) {
+    var container,
+      message,
+      viewerHtml,
+      loadUrl,
+      index,
+      imageRefs = null;
 
-
-papaya.Container.buildContainer = function (containerHTML, params, replaceIndex) {
-
-    var container, message, viewerHtml, loadUrl, index, imageRefs = null;
-
-    message = papaya.utilities.PlatformUtils.checkForBrowserCompatibility();
-    viewerHtml = containerHTML.find("." + PAPAYA_VIEWER_CSS);
+    message = PlatformUtils.checkForBrowserCompatibility();
+    viewerHtml = containerHTML.find("." + constant.PAPAYA_VIEWER_CSS);
 
     if (message !== null) {
-        papaya.Container.removeCheckForJSClasses(containerHTML, viewerHtml);
-        containerHTML.addClass(PAPAYA_UTILS_UNSUPPORTED_CSS);
-        viewerHtml.addClass(PAPAYA_UTILS_UNSUPPORTED_MESSAGE_CSS);
-        viewerHtml.html(message);
+      Container.removeCheckForJSClasses(containerHTML, viewerHtml);
+      containerHTML.addClass(constant.PAPAYA_UTILS_UNSUPPORTED_CSS);
+      viewerHtml.addClass(constant.PAPAYA_UTILS_UNSUPPORTED_MESSAGE_CSS);
+      viewerHtml.html(message);
     } else {
-        if (replaceIndex !== undefined) {
-            index = replaceIndex;
-        } else {
-            index = papayaContainers.length;
+      if (replaceIndex !== undefined) {
+        index = replaceIndex;
+      } else {
+        index = papayaContainers.length;
+      }
+
+      container = new Container(containerHTML);
+      container.containerIndex = index;
+      container.preferences = new Preferences(); // !! Viewer Preferences !!
+      Container.removeCheckForJSClasses(containerHTML, viewerHtml);
+
+      if (params) {
+        container.params = $.extend(container.params, params);
+      }
+
+      container.nestedViewer =
+        containerHTML.parent()[0].tagName.toUpperCase() !== "BODY";
+      container.readGlobalParams();
+
+      if (container.isDesktopMode()) {
+        container.preferences.readPreferences();
+      }
+
+      container.buildViewer(container.params);
+      container.buildDisplay();
+
+      if (container.showControlBar) {
+        container.buildSliderControl();
+      }
+
+      container.buildToolbar();
+
+      container.setUpDnD();
+
+      loadUrl = viewerHtml.data("load-url");
+
+      if (loadUrl) {
+        imageRefs = loadUrl;
+        if (!(imageRefs instanceof Array)) {
+          imageRefs = [];
+          imageRefs[0] = loadUrl;
         }
 
-        container = new papaya.Container(containerHTML);
-        container.containerIndex = index;
-        container.preferences = new papaya.viewer.Preferences();
-        papaya.Container.removeCheckForJSClasses(containerHTML, viewerHtml);
-
-        if (params) {
-            container.params = $.extend(container.params, params);
+        container.viewer.loadImage(imageRefs, true, false, false);
+      } else if (container.params.images) {
+        imageRefs = container.params.images[0];
+        if (!(imageRefs instanceof Array)) {
+          imageRefs = [];
+          imageRefs[0] = container.params.images[0];
         }
 
-        container.nestedViewer = (containerHTML.parent()[0].tagName.toUpperCase() !== 'BODY');
-        container.readGlobalParams();
-
-        if (container.isDesktopMode()) {
-            container.preferences.readPreferences();
+        container.viewer.loadImage(imageRefs, true, false, false);
+      } else if (container.params.encodedImages) {
+        imageRefs = container.params.encodedImages[0];
+        if (!(imageRefs instanceof Array)) {
+          imageRefs = [];
+          imageRefs[0] = container.params.encodedImages[0];
         }
 
-        container.buildViewer(container.params);
-        container.buildDisplay();
-
-        if (container.showControlBar) {
-            container.buildSliderControl();
+        container.viewer.loadImage(imageRefs, false, true, false);
+      } else if (container.params.binaryImages) {
+        imageRefs = container.params.binaryImages[0];
+        container.viewer.loadImage(imageRefs, false, false, true);
+      } else if (container.params.files) {
+        imageRefs = container.params.files[0];
+        if (!(imageRefs instanceof Array)) {
+          imageRefs = [];
+          imageRefs[0] = container.params.files[0];
         }
 
-        container.buildToolbar();
+        container.viewer.loadImage(imageRefs, false, false, false);
+      } else {
+        container.viewer.finishedLoading();
+      }
 
-        container.setUpDnD();
+      container.resizeViewerComponents(false);
 
-        loadUrl = viewerHtml.data("load-url");
+      if (!container.nestedViewer) {
+        containerHTML.parent().height("100%");
+        containerHTML.parent().width("100%");
+      }
 
-        if (loadUrl) {
-            imageRefs = loadUrl;
-            if (!(imageRefs instanceof Array)) {
-                imageRefs = [];
-                imageRefs[0] = loadUrl;
-            }
+      papayaContainers[index] = container;
 
-            container.viewer.loadImage(imageRefs, true, false, false);
-        } else if (container.params.images) {
-            imageRefs = container.params.images[0];
-            if (!(imageRefs instanceof Array)) {
-                imageRefs = [];
-                imageRefs[0] = container.params.images[0];
-            }
-
-            container.viewer.loadImage(imageRefs, true, false, false);
-        } else if (container.params.encodedImages) {
-            imageRefs = container.params.encodedImages[0];
-            if (!(imageRefs instanceof Array)) {
-                imageRefs = [];
-                imageRefs[0] = container.params.encodedImages[0];
-            }
-
-            container.viewer.loadImage(imageRefs, false, true, false);
-        } else if(container.params.binaryImages) {
-            imageRefs = container.params.binaryImages[0];
-            container.viewer.loadImage(imageRefs, false, false, true);
-        } else if (container.params.files) {
-            imageRefs = container.params.files[0];
-            if (!(imageRefs instanceof Array)) {
-                imageRefs = [];
-                imageRefs[0] = container.params.files[0];
-            }
-
-            container.viewer.loadImage(imageRefs, false, false, false);
-        } else {
-            container.viewer.finishedLoading();
-        }
-
-        container.resizeViewerComponents(false);
-
-        if (!container.nestedViewer) {
-            containerHTML.parent().height("100%");
-            containerHTML.parent().width("100%");
-        }
-
-        papayaContainers[index] = container;
-
-        papaya.Container.showLicense(container, params);
+      Container.showLicense(container, params);
     }
-};
+  }
 
-
-
-papaya.Container.prototype.rebuildContainer = function (params, index) {
+  rebuildContainer(params, index) {
     this.containerHtml.empty();
-    papaya.Container.fillContainerHTML(this.containerHtml, false, params, index);
-    papaya.Container.buildContainer(this.containerHtml, params, index);
+    Container.fillContainerHTML(this.containerHtml, false, params, index);
+    Container.buildContainer(this.containerHtml, params, index);
 
-    if ((papayaContainers.length === 1) && !papayaContainers[0].nestedViewer) {
-        $("html").addClass(PAPAYA_CONTAINER_FULLSCREEN);
-        $("body").addClass(PAPAYA_CONTAINER_FULLSCREEN);
-        papaya.Container.setToFullPage();
+    if (papayaContainers.length === 1 && !papayaContainers[0].nestedViewer) {
+      $("html").addClass(constant.PAPAYA_CONTAINER_FULLSCREEN);
+      $("body").addClass(constant.PAPAYA_CONTAINER_FULLSCREEN);
+      Container.setToFullPage();
     }
-};
+  }
 
-
-
-papaya.Container.buildAllContainers = function () {
+  static buildAllContainers() {
     var defaultContainer, params;
 
-    defaultContainer = $("#" + PAPAYA_DEFAULT_CONTAINER_ID);
+    defaultContainer = $("#" + constant.PAPAYA_DEFAULT_CONTAINER_ID);
 
     if (defaultContainer.length > 0) {
-        papaya.Container.fillContainerHTML(defaultContainer, true);
-        params = papaya.Container.findParameters(defaultContainer);
-        papaya.Container.buildContainer(defaultContainer, params);
+      Container.fillContainerHTML(defaultContainer, true);
+      params = Container.findParameters(defaultContainer);
+      Container.buildContainer(defaultContainer, params);
     } else {
-        $("." + PAPAYA_CONTAINER_CLASS_NAME).each(function () {
-            params = papaya.Container.findParameters($(this));
+      $("." + constant.PAPAYA_CONTAINER_CLASS_NAME).each(function () {
+        params = Container.findParameters($(this));
 
-            if (params === null) {
-                params = [];
-            }
+        if (params === null) {
+          params = [];
+        }
 
-            if (params.fullScreen === true) {
-                params.fullScreenPadding = false;
-                params.kioskMode = true;
-                params.showControlBar = false;
-                $('body').css({"background-color":"black"});
-            }
+        if (params.fullScreen === true) {
+          params.fullScreenPadding = false;
+          params.kioskMode = true;
+          params.showControlBar = false;
+          $("body").css({ "background-color": "black" });
+        }
 
-            papaya.Container.fillContainerHTML($(this), false, params);
-            papaya.Container.buildContainer($(this), params);
-        });
+        Container.fillContainerHTML($(this), false, params);
+        Container.buildContainer($(this), params);
+      });
     }
 
-    if ((papayaContainers.length === 1) && !papayaContainers[0].nestedViewer) {
-        $("html").addClass(PAPAYA_CONTAINER_FULLSCREEN);
-        $("body").addClass(PAPAYA_CONTAINER_FULLSCREEN);
-        papaya.Container.setToFullPage();
+    if (papayaContainers.length === 1 && !papayaContainers[0].nestedViewer) {
+      $("html").addClass(constant.PAPAYA_CONTAINER_FULLSCREEN);
+      $("body").addClass(constant.PAPAYA_CONTAINER_FULLSCREEN);
+      Container.setToFullPage();
 
-        papayaContainers[0].resizeViewerComponents(true);
+      papayaContainers[0].resizeViewerComponents(true);
     }
-};
+  }
 
-
-
-papaya.Container.startPapaya = function () {
-    setTimeout(function () {  // setTimeout necessary in Chrome
-        window.scrollTo(0, 0);
+  static startPapaya() {
+    setTimeout(function () {
+      // setTimeout necessary in Chrome
+      window.scrollTo(0, 0);
     }, 0);
 
-    papaya.Container.DICOM_SUPPORT = (typeof(daikon) !== "undefined");
+    Container.DICOM_SUPPORT = typeof daikon !== "undefined";
 
-    papaya.Container.buildAllContainers();
-};
+    Container.buildAllContainers();
+  }
 
-
-
-papaya.Container.resizePapaya = function (ev, force) {
+  static resizePapaya(ev, force) {
     var ctr;
 
-    papaya.Container.updateOrthogonalState();
+    Container.updateOrthogonalState();
 
-    if ((papayaContainers.length === 1) && !papayaContainers[0].nestedViewer) {
-        if (!papaya.utilities.PlatformUtils.smallScreen || force) {
-            papayaContainers[0].resizeViewerComponents(true);
-        }
+    if (papayaContainers.length === 1 && !papayaContainers[0].nestedViewer) {
+      if (!PlatformUtils.smallScreen || force) {
+        papayaContainers[0].resizeViewerComponents(true);
+      }
     } else {
-        for (ctr = 0; ctr < papayaContainers.length; ctr += 1) {
-            papayaContainers[ctr].resizeViewerComponents(true);
-        }
+      for (ctr = 0; ctr < papayaContainers.length; ctr += 1) {
+        papayaContainers[ctr].resizeViewerComponents(true);
+      }
     }
 
-    setTimeout(function () {  // setTimeout necessary in Chrome
-        window.scrollTo(0, 0);
+    setTimeout(function () {
+      // setTimeout necessary in Chrome
+      window.scrollTo(0, 0);
     }, 0);
-};
+  }
 
-
-
-papaya.Container.addViewer = function (parentName, params, callback) {
+  static addViewer(parentName, params, callback) {
     var container, parent;
 
     parent = $("#" + parentName);
@@ -546,269 +726,276 @@ papaya.Container.addViewer = function (parentName, params, callback) {
     parent.html(container);
 
     // remove parent click handler
-    parent[0].onclick = '';
+    parent[0].onclick = "";
     parent.off("click");
 
-    papaya.Container.fillContainerHTML(container, false, params);
-    papaya.Container.buildContainer(container, params);
+    Container.fillContainerHTML(container, false, params);
+    Container.buildContainer(container, params);
 
     if (callback) {
-        callback();
+      callback();
     }
-};
+  }
 
-
-
-papaya.Container.removeCheckForJSClasses = function (containerHtml, viewerHtml) {
+  static removeCheckForJSClasses(containerHtml, viewerHtml) {
     // old way, here for backwards compatibility
-    viewerHtml.removeClass(PAPAYA_CONTAINER_CLASS_NAME);
-    viewerHtml.removeClass(PAPAYA_UTILS_CHECKFORJS_CSS);
+    viewerHtml.removeClass(constant.PAPAYA_CONTAINER_CLASS_NAME);
+    viewerHtml.removeClass(constant.PAPAYA_UTILS_CHECKFORJS_CSS);
 
     // new way
-    containerHtml.removeClass(PAPAYA_CONTAINER_CLASS_NAME);
-    containerHtml.removeClass(PAPAYA_UTILS_CHECKFORJS_CSS);
-};
+    containerHtml.removeClass(constant.PAPAYA_CONTAINER_CLASS_NAME);
+    containerHtml.removeClass(constant.PAPAYA_UTILS_CHECKFORJS_CSS);
+  }
 
-
-
-papaya.Container.setToFullPage = function () {
+  static setToFullPage() {
     document.body.style.marginTop = 0;
     document.body.style.marginBottom = 0;
-    document.body.style.marginLeft = 'auto';
-    document.body.style.marginRight = 'auto';
+    document.body.style.marginLeft = "auto";
+    document.body.style.marginRight = "auto";
     document.body.style.padding = 0;
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     document.body.style.width = "100%";
     document.body.style.height = "100%";
-};
+  }
 
+  static getLicense() {
+    return Container.LICENSE_TEXT;
+  }
 
+  static getKeyboardReference() {
+    return Container.KEYBOARD_REF_TEXT;
+  }
 
-papaya.Container.getLicense = function () {
-    return papaya.Container.LICENSE_TEXT;
-};
+  static getMouseReference() {
+    return Container.MOUSE_REF_TEXT;
+  }
 
+  static setLicenseRead() {
+    UrlUtils.createCookie(
+      Preferences.COOKIE_PREFIX + "eula",
+      "Yes", // !! Viewer Preference
+      Preferences.COOKIE_EXPIRY_DAYS
+    );
+  }
 
+  static isLicenseRead() {
+    var value = UrlUtils.readCookie(Preferences.COOKIE_PREFIX + "eula"); // !! Viewer Preference
+    return value && value === "Yes";
+  }
 
-papaya.Container.getKeyboardReference = function () {
-    return papaya.Container.KEYBOARD_REF_TEXT;
-};
+  static showLicense(container, params) {
+    var showEula = params && params.showEULA !== undefined && params.showEULA;
 
-
-
-papaya.Container.getMouseReference = function () {
-    return papaya.Container.MOUSE_REF_TEXT;
-};
-
-
-
-papaya.Container.setLicenseRead = function () {
-    papaya.utilities.UrlUtils.createCookie(papaya.viewer.Preferences.COOKIE_PREFIX + "eula", "Yes",
-        papaya.viewer.Preferences.COOKIE_EXPIRY_DAYS);
-};
-
-
-
-papaya.Container.isLicenseRead = function () {
-    var value = papaya.utilities.UrlUtils.readCookie(papaya.viewer.Preferences.COOKIE_PREFIX + "eula");
-    return (value && (value === 'Yes'));
-};
-
-
-
-papaya.Container.showLicense = function (container, params) {
-    var showEula = (params && params.showEULA !== undefined) && params.showEULA;
-
-    if (showEula && !papaya.Container.isLicenseRead()) {
-        var dialog = new papaya.ui.Dialog(container, "License", papaya.ui.Toolbar.LICENSE_DATA,
-            papaya.Container, null, papaya.Container.setLicenseRead, null, true);
-        dialog.showDialog();
+    if (showEula && !Container.isLicenseRead()) {
+      var dialog = new Dialog(
+        container,
+        "License",
+        Toolbar.LICENSE_DATA, // !! UI Dialog & ToolBar
+        Container,
+        null,
+        Container.setLicenseRead,
+        null,
+        true
+      );
+      dialog.showDialog();
     }
-};
+  }
 
-
-
-papaya.Container.updateOrthogonalState = function () {
+  static updateOrthogonalState() {
     var ctr;
 
     for (ctr = 0; ctr < papayaContainers.length; ctr += 1) {
-        if (papayaContainers[ctr].orthogonal &&
-            ((papaya.utilities.PlatformUtils.mobile || papayaContainers[ctr].orthogonalDynamic))) {
-            if ($(window).height() > $(window).width()) {
-                papayaContainers[ctr].orthogonalTall = true;
-            } else {
-                papayaContainers[ctr].orthogonalTall = false;
-            }
+      if (
+        papayaContainers[ctr].orthogonal &&
+        (PlatformUtils.mobile || papayaContainers[ctr].orthogonalDynamic)
+      ) {
+        if ($(window).height() > $(window).width()) {
+          papayaContainers[ctr].orthogonalTall = true;
+        } else {
+          papayaContainers[ctr].orthogonalTall = false;
         }
+      }
     }
-};
+  }
 
-
-
-papaya.Container.reorientPapaya = function () {
+  static reorientPapaya() {
     var ctr;
 
     for (ctr = 0; ctr < papayaContainers.length; ctr += 1) {
-        papayaContainers[ctr].toolbar.closeAllMenus();
+      papayaContainers[ctr].toolbar.closeAllMenus();
     }
 
-    papaya.Container.updateOrthogonalState();
-    papaya.Container.resizePapaya(null, true);
-};
+    Container.updateOrthogonalState();
+    Container.resizePapaya(null, true);
+  }
 
+  resetComponents() {
+    this.containerHtml.css({ height: "auto" });
+    this.containerHtml.css({ width: "auto" });
+    this.containerHtml.css({ margin: "auto" });
+    $("head").append("<style>div#papayaViewer:before{ content:'' }</style>");
+  }
 
+  hasSurface() {
+    return this.viewer && this.viewer.surfaces.length > 0;
+  }
 
-/*** Prototype Methods ***/
-
-papaya.Container.prototype.resetComponents = function () {
-    this.containerHtml.css({height: "auto"});
-    this.containerHtml.css({width: "auto"});
-    this.containerHtml.css({margin: "auto"});
-    $('head').append("<style>div#papayaViewer:before{ content:'' }</style>");
-};
-
-
-
-papaya.Container.prototype.hasSurface = function () {
-    return (this.viewer && (this.viewer.surfaces.length > 0));
-};
-
-
-
-
-papaya.Container.prototype.getViewerDimensions = function () {
+  getViewerDimensions() {
     var parentWidth, height, width, ratio, maxHeight, maxWidth;
 
-    parentWidth = this.containerHtml.parent().width() - (this.fullScreenPadding ? (2 * PAPAYA_PADDING) : 0);
-    ratio = (this.orthogonal ? (this.hasSurface() ? 1.333 : 1.5) : 1);
+    parentWidth =
+      this.containerHtml.parent().width() -
+      (this.fullScreenPadding ? 2 * constant.PAPAYA_PADDING : 0);
+    ratio = this.orthogonal ? (this.hasSurface() ? 1.333 : 1.5) : 1;
 
     if (this.orthogonalTall || !this.orthogonal) {
-        height = (this.collapsable ? window.innerHeight : this.containerHtml.parent().height()) - (papaya.viewer.Display.SIZE + (this.kioskMode ? 0 : (papaya.ui.Toolbar.SIZE +
-            PAPAYA_SPACING)) + PAPAYA_SPACING + (this.fullScreenPadding && !this.nestedViewer ? (2 * PAPAYA_CONTAINER_PADDING_TOP) : 0)) -
-            (this.showControlBar ? 2*papaya.ui.Toolbar.SIZE : 0);
+      // !! viewer Display
+      height =
+        (this.collapsable
+          ? window.innerHeight
+          : this.containerHtml.parent().height()) -
+        (Display.SIZE +
+          (this.kioskMode ? 0 : Toolbar.SIZE + constant.PAPAYA_SPACING) +
+          constant.PAPAYA_SPACING +
+          (this.fullScreenPadding && !this.nestedViewer
+            ? 2 * constant.PAPAYA_CONTAINER_PADDING_TOP
+            : 0)) -
+        (this.showControlBar ? 2 * Toolbar.SIZE : 0);
 
-        width = papayaRoundFast(height / ratio);
+      width = papayaRoundFast(height / ratio);
     } else {
-
-        width = parentWidth;
-        height = papayaRoundFast(width / ratio);
+      width = parentWidth;
+      height = papayaRoundFast(width / ratio);
     }
 
     if (!this.nestedViewer || this.collapsable) {
-
-        if (this.orthogonalTall) {
-
-            maxWidth = window.innerWidth - (this.fullScreenPadding ? (2 * PAPAYA_PADDING) : 0);
-            if (width > maxWidth) {
-                width = maxWidth;
-                height = papayaRoundFast(width * ratio);
-            }
-        } else {
-
-            maxHeight = window.innerHeight - (papaya.viewer.Display.SIZE + (this.kioskMode ? 0 : (papaya.ui.Toolbar.SIZE +
-                PAPAYA_SPACING)) + PAPAYA_SPACING + (this.fullScreenPadding ? (2 * PAPAYA_CONTAINER_PADDING_TOP) : 0)) -
-                (this.showControlBar ? 2*papaya.ui.Toolbar.SIZE : 0);
-            if (height > maxHeight) {
-                height = maxHeight;
-                width = papayaRoundFast(height * ratio);
-            }
-
+      if (this.orthogonalTall) {
+        maxWidth =
+          window.innerWidth -
+          (this.fullScreenPadding ? 2 * constant.PAPAYA_PADDING : 0);
+        if (width > maxWidth) {
+          width = maxWidth;
+          height = papayaRoundFast(width * ratio);
         }
+      } else {
+        maxHeight =
+          window.innerHeight -
+          (Display.SIZE +
+            (this.kioskMode ? 0 : Toolbar.SIZE + constant.PAPAYA_SPACING) +
+            constant.PAPAYA_SPACING +
+            (this.fullScreenPadding
+              ? 2 * constant.PAPAYA_CONTAINER_PADDING_TOP
+              : 0)) -
+          (this.showControlBar ? 2 * Toolbar.SIZE : 0);
+        if (height > maxHeight) {
+          height = maxHeight;
+          width = papayaRoundFast(height * ratio);
+        }
+      }
     }
 
     return [width, height];
-};
+  }
 
-
-
-papaya.Container.prototype.getViewerPadding = function () {
+  getViewerPadding() {
     var parentWidth, viewerDims, padding;
 
-    parentWidth = this.containerHtml.parent().width() - (this.fullScreenPadding ? (2 * PAPAYA_PADDING) : 0);
+    parentWidth =
+      this.containerHtml.parent().width() -
+      (this.fullScreenPadding ? 2 * constant.PAPAYA_PADDING : 0);
     viewerDims = this.getViewerDimensions();
-    padding = ((parentWidth - viewerDims[0]) / 2);
+    padding = (parentWidth - viewerDims[0]) / 2;
 
     return padding;
-};
+  }
 
-
-
-papaya.Container.prototype.readGlobalParams = function() {
-    this.kioskMode = (this.params.kioskMode === true) || papaya.utilities.PlatformUtils.smallScreen;
-    this.combineParametric = (this.params.combineParametric === true);
+  readGlobalParams() {
+    this.kioskMode =
+      this.params.kioskMode === true || PlatformUtils.smallScreen;
+    this.combineParametric = this.params.combineParametric === true;
 
     if (this.params.loadingComplete) {
-        this.loadingComplete = this.params.loadingComplete;
+      this.loadingComplete = this.params.loadingComplete;
     }
 
-    if (this.params.showControls !== undefined) {  // default is true
-        this.showControls = this.params.showControls;
+    if (this.params.showControls !== undefined) {
+      // default is true
+      this.showControls = this.params.showControls;
     }
 
-    if (this.params.noNewFiles !== undefined) {  // default is false
-        this.noNewFiles = this.params.noNewFiles;
+    if (this.params.noNewFiles !== undefined) {
+      // default is false
+      this.noNewFiles = this.params.noNewFiles;
     }
 
-    if (this.params.showImageButtons !== undefined) {  // default is true
-        this.showImageButtons = this.params.showImageButtons;
+    if (this.params.showImageButtons !== undefined) {
+      // default is true
+      this.showImageButtons = this.params.showImageButtons;
     }
 
-    if (papaya.utilities.PlatformUtils.smallScreen) {
-        this.showImageButtons = false;
+    if (PlatformUtils.smallScreen) {
+      this.showImageButtons = false;
     }
 
-    if (this.params.fullScreenPadding !== undefined) {  // default is true
-        this.fullScreenPadding = this.params.fullScreenPadding;
+    if (this.params.fullScreenPadding !== undefined) {
+      // default is true
+      this.fullScreenPadding = this.params.fullScreenPadding;
     }
 
-    if (this.params.orthogonal !== undefined) {  // default is true
-        this.orthogonal = this.params.orthogonal;
+    if (this.params.orthogonal !== undefined) {
+      // default is true
+      this.orthogonal = this.params.orthogonal;
     }
 
-    this.surfaceParams.showSurfacePlanes = (this.params.showSurfacePlanes === true);
-    this.surfaceParams.showSurfaceCrosshairs = (this.params.showSurfaceCrosshairs === true);
+    this.surfaceParams.showSurfacePlanes =
+      this.params.showSurfacePlanes === true;
+    this.surfaceParams.showSurfaceCrosshairs =
+      this.params.showSurfaceCrosshairs === true;
     this.surfaceParams.surfaceBackground = this.params.surfaceBackground;
 
-    this.orthogonalTall = this.orthogonal && (this.params.orthogonalTall === true);
-    this.orthogonalDynamic = this.orthogonal && (this.params.orthogonalDynamic === true);
+    this.orthogonalTall =
+      this.orthogonal && this.params.orthogonalTall === true;
+    this.orthogonalDynamic =
+      this.orthogonal && this.params.orthogonalDynamic === true;
 
-    if (this.params.allowScroll !== undefined) {  // default is true
-        this.allowScroll = this.params.allowScroll;
+    if (this.params.allowScroll !== undefined) {
+      // default is true
+      this.allowScroll = this.params.allowScroll;
     }
 
-    if (papaya.utilities.PlatformUtils.mobile || this.orthogonalDynamic) {
-        if (this.orthogonal) {
-            if ($(window).height() > $(window).width()) {
-                this.orthogonalTall = true;
-            } else {
-                this.orthogonalTall = false;
-            }
+    if (PlatformUtils.mobile || this.orthogonalDynamic) {
+      if (this.orthogonal) {
+        if ($(window).height() > $(window).width()) {
+          this.orthogonalTall = true;
+        } else {
+          this.orthogonalTall = false;
         }
+      }
     }
 
-    if (this.params.syncOverlaySeries !== undefined) {  // default is true
-        this.syncOverlaySeries = this.params.syncOverlaySeries;
+    if (this.params.syncOverlaySeries !== undefined) {
+      // default is true
+      this.syncOverlaySeries = this.params.syncOverlaySeries;
     }
 
-    if (this.params.showControlBar !== undefined) {  // default is true
-        this.showControlBar = this.showControls && this.params.showControlBar;
+    if (this.params.showControlBar !== undefined) {
+      // default is true
+      this.showControlBar = this.showControls && this.params.showControlBar;
     }
 
     if (this.params.contextManager !== undefined) {
-        this.contextManager = this.params.contextManager;
+      this.contextManager = this.params.contextManager;
     }
 
     if (this.params.fullScreen === true) {
-        this.fullScreenPadding = this.params.fullScreenPadding = false;
-        this.kioskMode = this.params.kioskMode = true;
-        this.showControlBar = this.params.showControlBar = false;
-        $('body').css("background-color:'black'");
+      this.fullScreenPadding = this.params.fullScreenPadding = false;
+      this.kioskMode = this.params.kioskMode = true;
+      this.showControlBar = this.params.showControlBar = false;
+      $("body").css("background-color:'black'");
     }
-};
+  }
 
-
-
-papaya.Container.prototype.reset = function () {
+  reset() {
     this.loadingImageIndex = 0;
     this.loadingSurfaceIndex = 0;
     this.nestedViewer = false;
@@ -823,313 +1010,345 @@ papaya.Container.prototype.reset = function () {
     this.fullScreenPadding = true;
     this.combineParametric = false;
     this.showRuler = false;
-};
+  }
 
-
-
-papaya.Container.prototype.resizeViewerComponents = function (resize) {
-    var dims, padding, diff = 0;
+  resizeViewerComponents(resize) {
+    var dims,
+      padding,
+      diff = 0;
 
     this.toolbar.closeAllMenus();
 
     dims = this.getViewerDimensions();
     padding = this.getViewerPadding();
 
-    this.toolbarHtml.css({width: dims[0] + "px"});
-    this.toolbarHtml.css({height: papaya.ui.Toolbar.SIZE + "px"});
-    this.toolbarHtml.css({paddingLeft: padding + "px"});
-    this.toolbarHtml.css({paddingBottom: PAPAYA_SPACING + "px"});
+    this.toolbarHtml.css({ width: dims[0] + "px" });
+    this.toolbarHtml.css({ height: Toolbar.SIZE + "px" }); // !! ui TooBar
+    this.toolbarHtml.css({ paddingLeft: padding + "px" });
+    this.toolbarHtml.css({ paddingBottom: constant.PAPAYA_SPACING + "px" });
 
-    this.viewerHtml.css({width: dims[0] + "px"});
-    this.viewerHtml.css({height: dims[1] + "px"});
-    this.viewerHtml.css({paddingLeft: padding + "px"});
+    this.viewerHtml.css({ width: dims[0] + "px" });
+    this.viewerHtml.css({ height: dims[1] + "px" });
+    this.viewerHtml.css({ paddingLeft: padding + "px" });
 
     if (resize) {
-        this.viewer.resizeViewer(dims);
+      this.viewer.resizeViewer(dims);
     }
 
-    this.displayHtml.css({height: papaya.viewer.Display.SIZE + "px"});
-    this.displayHtml.css({paddingLeft: padding + "px"});
-    this.displayHtml.css({paddingTop: PAPAYA_SPACING + "px"});
+    this.displayHtml.css({ height: Display.SIZE + "px" }); // !! Viewer Display
+    this.displayHtml.css({ paddingLeft: padding + "px" });
+    this.displayHtml.css({ paddingTop: constant.PAPAYA_SPACING + "px" });
     this.display.canvas.width = dims[0];
 
     if (this.showControls && this.showControlBar) {
-        this.sliderControlHtml.css({width: dims[0] + "px"});
-        this.sliderControlHtml.css({height: papaya.viewer.Display.SIZE + "px"});
+      this.sliderControlHtml.css({ width: dims[0] + "px" });
+      this.sliderControlHtml.css({ height: Display.SIZE + "px" }); // !! Viewer Display
 
-        if (this.kioskMode) {
-            diff += 0;
-        } else {
-            diff += -50;
-        }
+      if (this.kioskMode) {
+        diff += 0;
+      } else {
+        diff += -50;
+      }
 
-        if (this.viewer.hasSeries) {
-            diff += 200;
-        } else {
-            diff += 0;
-        }
+      if (this.viewer.hasSeries) {
+        diff += 200;
+      } else {
+        diff += 0;
+      }
 
-        if (dims[0] < (775 + diff)) {
-            $("." + PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS).css({display: "none"});
-            $("." + PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS).css({display: "none"});
-        } else {
-            $("." + PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS).css({display: "inline"});
-            $("." + PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS).css({display: "inline"});
-        }
+      if (dims[0] < 775 + diff) {
+        $("." + constant.PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS).css({
+          display: "none",
+        });
+        $("." + constant.PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS).css({
+          display: "none",
+        });
+      } else {
+        $("." + constant.PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS).css({
+          display: "inline",
+        });
+        $("." + constant.PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS).css({
+          display: "inline",
+        });
+      }
 
-        if (dims[0] < (600 + diff)) {
-            $("." + PAPAYA_CONTROL_DIRECTION_SLIDER).css({display: "none"});
-            $("." + PAPAYA_CONTROL_MAIN_SLIDER).css({display: "inline"});
-        } else {
-            $("." + PAPAYA_CONTROL_DIRECTION_SLIDER).css({display: "inline"});
-            $("." + PAPAYA_CONTROL_MAIN_SLIDER).css({display: "none"});
-        }
+      if (dims[0] < 600 + diff) {
+        $("." + constant.PAPAYA_CONTROL_DIRECTION_SLIDER).css({
+          display: "none",
+        });
+        $("." + constant.PAPAYA_CONTROL_MAIN_SLIDER).css({ display: "inline" });
+      } else {
+        $("." + constant.PAPAYA_CONTROL_DIRECTION_SLIDER).css({
+          display: "inline",
+        });
+        $("." + constant.PAPAYA_CONTROL_MAIN_SLIDER).css({ display: "none" });
+      }
 
-        if (this.viewer.hasSeries && (dims[0] < (450 + diff))) {
-            $("." + PAPAYA_CONTROL_MAIN_SLIDER).css({display: "none"});
-        }
+      if (this.viewer.hasSeries && dims[0] < 450 + diff) {
+        $("." + constant.PAPAYA_CONTROL_MAIN_SLIDER).css({ display: "none" });
+      }
 
-        if (dims[0] < 200) {
-            $("." + PAPAYA_CONTROL_SWAP_BUTTON_CSS).css({display: "none"});
-        } else {
-            $("." + PAPAYA_CONTROL_SWAP_BUTTON_CSS).css({display: "inline"});
-        }
+      if (dims[0] < 200) {
+        $("." + constant.PAPAYA_CONTROL_SWAP_BUTTON_CSS).css({
+          display: "none",
+        });
+      } else {
+        $("." + constant.PAPAYA_CONTROL_SWAP_BUTTON_CSS).css({
+          display: "inline",
+        });
+      }
 
-        if (this.viewer.hasSeries) {
-            $("." + PAPAYA_CONTROL_DIRECTION_SLIDER).eq(3).css({display: "inline"});
-        } else {
-            $("." + PAPAYA_CONTROL_DIRECTION_SLIDER).eq(3).css({display: "none"});
-        }
+      if (this.viewer.hasSeries) {
+        $("." + constant.PAPAYA_CONTROL_DIRECTION_SLIDER)
+          .eq(3)
+          .css({ display: "inline" });
+      } else {
+        $("." + constant.PAPAYA_CONTROL_DIRECTION_SLIDER)
+          .eq(3)
+          .css({ display: "none" });
+      }
     } else if (this.showControls && this.viewer.initialized) {
-        if (dims[0] < 600) {
-            $("#" + PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS + this.containerIndex).css({display: "none"});
-            $("#" + PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS + this.containerIndex).css({display: "none"});
-        } else if (!this.viewer.controlsHidden) {
-            $("#" + PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS + this.containerIndex).css({display: "inline"});
-            $("#" + PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS + this.containerIndex).css({display: "inline"});
-        }
+      if (dims[0] < 600) {
+        $(
+          "#" +
+            constant.PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS +
+            this.containerIndex
+        ).css({ display: "none" });
+        $(
+          "#" +
+            constant.PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS +
+            this.containerIndex
+        ).css({ display: "none" });
+      } else if (!this.viewer.controlsHidden) {
+        $(
+          "#" +
+            constant.PAPAYA_CONTROL_MAIN_GOTO_CENTER_BUTTON_CSS +
+            this.containerIndex
+        ).css({ display: "inline" });
+        $(
+          "#" +
+            constant.PAPAYA_CONTROL_MAIN_GOTO_ORIGIN_BUTTON_CSS +
+            this.containerIndex
+        ).css({ display: "inline" });
+      }
     }
 
     if (this.isDesktopMode()) {
-        if (dims[0] < 600) {
-            this.titlebarHtml.css({visibility: "hidden"});
-        } else {
-            this.titlebarHtml.css({visibility: "visible"});
-        }
+      if (dims[0] < 600) {
+        this.titlebarHtml.css({ visibility: "hidden" });
+      } else {
+        this.titlebarHtml.css({ visibility: "visible" });
+      }
     }
 
     if ((!this.nestedViewer || this.collapsable) && this.fullScreenPadding) {
-        this.containerHtml.css({paddingTop: PAPAYA_CONTAINER_PADDING_TOP + "px"});
+      this.containerHtml.css({
+        paddingTop: constant.PAPAYA_CONTAINER_PADDING_TOP + "px",
+      });
     } else {
-        this.containerHtml.css({paddingTop: "0"});
+      this.containerHtml.css({ paddingTop: "0" });
     }
 
     if (this.fullScreenPadding) {
-        this.containerHtml.css({paddingLeft: PAPAYA_PADDING + "px"});
-        this.containerHtml.css({paddingRight: PAPAYA_PADDING + "px"});
+      this.containerHtml.css({ paddingLeft: constant.PAPAYA_PADDING + "px" });
+      this.containerHtml.css({ paddingRight: constant.PAPAYA_PADDING + "px" });
     }
 
     if (this.viewer.initialized) {
-        this.viewer.drawViewer(false, true);
+      this.viewer.drawViewer(false, true);
     } else {
-        this.viewer.drawEmptyViewer();
-        this.display.drawEmptyDisplay();
+      this.viewer.drawEmptyViewer();
+      this.display.drawEmptyDisplay();
     }
 
-    this.titlebarHtml.css({width: dims[0] + "px", top: (0)});
-};
+    this.titlebarHtml.css({ width: dims[0] + "px", top: 0 });
+  }
 
-
-
-papaya.Container.prototype.updateViewerSize = function () {
+  updateViewerSize() {
     this.toolbar.closeAllMenus();
     this.viewer.resizeViewer(this.getViewerDimensions());
     this.viewer.updateOffsetRect();
-};
+  }
 
-
-
-papaya.Container.prototype.buildViewer = function (params) {
+  buildViewer(params) {
     var dims;
 
-    this.viewerHtml = this.containerHtml.find("." + PAPAYA_VIEWER_CSS);
-    papaya.Container.removeCheckForJSClasses(this.containerHtml, this.viewerHtml);
-    this.viewerHtml.html("");  // remove noscript message
+    this.viewerHtml = this.containerHtml.find("." + constant.PAPAYA_VIEWER_CSS);
+    Container.removeCheckForJSClasses(this.containerHtml, this.viewerHtml);
+    this.viewerHtml.html(""); // remove noscript message
     dims = this.getViewerDimensions();
-    this.viewer = new papaya.viewer.Viewer(this, dims[0], dims[1], params);
+    this.viewer = new Viewer(this, dims[0], dims[1], params); // !! Viewer Viewer
     this.viewerHtml.append($(this.viewer.canvas));
     this.preferences.viewer = this.viewer;
-};
+  }
 
-
-
-papaya.Container.prototype.buildDisplay = function () {
+  buildDisplay() {
     var dims;
 
-    this.displayHtml = this.containerHtml.find("." + PAPAYA_DISPLAY_CSS);
+    this.displayHtml = this.containerHtml.find(
+      "." + constant.PAPAYA_DISPLAY_CSS
+    );
     dims = this.getViewerDimensions();
-    this.display = new papaya.viewer.Display(this, dims[0]);
+    this.display = new Display(this, dims[0]); // !! Viewer Display
     this.displayHtml.append($(this.display.canvas));
-};
+  }
 
+  buildSliderControl() {
+    this.sliderControlHtml = this.containerHtml.find(
+      "." + constant.PAPAYA_KIOSK_CONTROLS_CSS
+    );
+  }
 
-
-papaya.Container.prototype.buildSliderControl = function () {
-    this.sliderControlHtml = this.containerHtml.find("." + PAPAYA_KIOSK_CONTROLS_CSS);
-};
-
-
-
-papaya.Container.prototype.buildToolbar = function () {
-    this.toolbarHtml = this.containerHtml.find("." + PAPAYA_TOOLBAR_CSS);
-    this.toolbar = new papaya.ui.Toolbar(this);
+  buildToolbar() {
+    this.toolbarHtml = this.containerHtml.find(
+      "." + constant.PAPAYA_TOOLBAR_CSS
+    );
+    this.toolbar = new Toolbar(this); // !! Viewer
     this.toolbar.buildToolbar();
     this.toolbar.updateImageButtons();
-};
+  }
 
-
-
-papaya.Container.prototype.readFile = function(fileEntry, callback) {
-    fileEntry.file(function(callback, file){
+  readFile(fileEntry, callback) {
+    fileEntry.file(
+      function (callback, file) {
         if (callback) {
-            if (file.name.charAt(0) !== '.') {
-                callback(file);
-            }
+          if (file.name.charAt(0) !== ".") {
+            callback(file);
+          }
         }
-    }.bind(this, callback));
-};
+      }.bind(this, callback)
+    );
+  }
 
-
-
-papaya.Container.prototype.readDir = function(itemEntry) {
+  readDir(itemEntry) {
     this.readDirNextEntries(itemEntry.createReader());
-};
+  }
 
-
-
-papaya.Container.prototype.readDirNextEntries = function(dirReader) {
+  readDirNextEntries(dirReader) {
     var container = this;
 
-    dirReader.readEntries(function(entries) {
-        var len = entries.length,
-            ctr, entry;
+    dirReader.readEntries(function (entries) {
+      var len = entries.length,
+        ctr,
+        entry;
 
-        if (len > 0) {
-            for (ctr = 0; ctr < len; ctr += 1) {
-                entry = entries[ctr];
-                if (entry.isFile) {
-                    container.readFile(entry, papaya.utilities.ObjectUtils.bind(container, container.addDroppedFile));
-                }
-            }
-
-            container.readDirNextEntries(dirReader);
+      if (len > 0) {
+        for (ctr = 0; ctr < len; ctr += 1) {
+          entry = entries[ctr];
+          if (entry.isFile) {
+            container.readFile(
+              entry,
+              ObjectUtils.bind(container, container.addDroppedFile)
+            );
+          }
         }
+
+        container.readDirNextEntries(dirReader);
+      }
     });
-};
+  }
 
-
-
-papaya.Container.prototype.setUpDnD = function () {
+  setUpDnD() {
     var container = this;
 
     this.containerHtml[0].ondragover = function () {
-        container.viewer.draggingOver = true;
-        if (!container.viewer.initialized) {
-            container.viewer.drawEmptyViewer();
-        }
+      container.viewer.draggingOver = true;
+      if (!container.viewer.initialized) {
+        container.viewer.drawEmptyViewer();
+      }
 
-        return false;
+      return false;
     };
 
     this.containerHtml[0].ondragleave = function () {
-        container.viewer.draggingOver = false;
-        if (!container.viewer.initialized) {
-            container.viewer.drawEmptyViewer();
-        }
-        return false;
+      container.viewer.draggingOver = false;
+      if (!container.viewer.initialized) {
+        container.viewer.drawEmptyViewer();
+      }
+      return false;
     };
 
     this.containerHtml[0].ondragend = function () {
-        container.viewer.draggingOver = false;
-        if (!container.viewer.initialized) {
-            container.viewer.drawEmptyViewer();
-        }
-        return false;
+      container.viewer.draggingOver = false;
+      if (!container.viewer.initialized) {
+        container.viewer.drawEmptyViewer();
+      }
+      return false;
     };
 
     this.containerHtml[0].ondrop = function (evt) {
-        evt.preventDefault();
+      evt.preventDefault();
 
-        var dataTransfer = evt.dataTransfer;
+      var dataTransfer = evt.dataTransfer;
 
-        container.display.drawProgress(0.1, "Loading");
+      container.display.drawProgress(0.1, "Loading");
 
-        if (dataTransfer) {
-            if (dataTransfer.items && (dataTransfer.items.length > 0)) {
-                var items = dataTransfer.items,
-                    len = items.length,
-                    ctr, entry;
+      if (dataTransfer) {
+        if (dataTransfer.items && dataTransfer.items.length > 0) {
+          var items = dataTransfer.items,
+            len = items.length,
+            ctr,
+            entry;
 
-                for (ctr = 0; ctr<len; ctr += 1) {
-                    entry = items[ctr];
+          for (ctr = 0; ctr < len; ctr += 1) {
+            entry = items[ctr];
 
-                    if (entry.getAsEntry) {
-                        entry = entry.getAsEntry();
-                    } else if(entry.webkitGetAsEntry) {
-                        entry = entry.webkitGetAsEntry();
-                    }
-
-                    if (entry.isFile) {
-                        container.readFile(entry, papaya.utilities.ObjectUtils.bind(container,
-                            container.addDroppedFile));
-                    } else if (entry.isDirectory) {
-                        container.readDir(entry);
-                    }
-                }
+            if (entry.getAsEntry) {
+              entry = entry.getAsEntry();
+            } else if (entry.webkitGetAsEntry) {
+              entry = entry.webkitGetAsEntry();
             }
 
-            //else if (dataTransfer.mozGetDataAt) {  // permission denied :-(
-            //    console.log(dataTransfer.mozGetDataAt('application/x-moz-file', 0));
-            //}
-
-            else if (dataTransfer.files && (dataTransfer.files.length > 0)) {
-                container.viewer.loadImage(evt.dataTransfer.files);
+            if (entry.isFile) {
+              container.readFile(
+                entry,
+                ObjectUtils.bind(container, container.addDroppedFile)
+              );
+            } else if (entry.isDirectory) {
+              container.readDir(entry);
             }
+          }
         }
 
-        return false;
+        //else if (dataTransfer.mozGetDataAt) {  // permission denied :-(
+        //    console.log(dataTransfer.mozGetDataAt('application/x-moz-file', 0));
+        //}
+        else if (dataTransfer.files && dataTransfer.files.length > 0) {
+          container.viewer.loadImage(evt.dataTransfer.files);
+        }
+      }
+
+      return false;
     };
-};
+  }
 
-
-
-papaya.Container.prototype.addDroppedFile = function (file) {
+  addDroppedFile(file) {
     clearTimeout(this.dropTimeout);
     papayaDroppedFiles.push(file);
-    this.dropTimeout = setTimeout(papaya.utilities.ObjectUtils.bind(this, this.droppedFilesFinishedLoading), 100);
-};
+    this.dropTimeout = setTimeout(
+      ObjectUtils.bind(this, this.droppedFilesFinishedLoading),
+      100
+    );
+  }
 
-
-
-papaya.Container.prototype.droppedFilesFinishedLoading = function () {
-    if (papaya.surface.Surface.findSurfaceType(papayaDroppedFiles[0].name) !== papaya.surface.Surface.SURFACE_TYPE_UNKNOWN) {
-        this.viewer.loadSurface(papayaDroppedFiles);
+  droppedFilesFinishedLoading() {
+    if (
+      Surface.findSurfaceType(papayaDroppedFiles[0].name) !==
+      Surface.SURFACE_TYPE_UNKNOWN
+    ) {
+      this.viewer.loadSurface(papayaDroppedFiles);
     } else {
-        this.viewer.loadImage(papayaDroppedFiles);
+      this.viewer.loadImage(papayaDroppedFiles);
     }
 
     papayaDroppedFiles = [];
-};
+  }
 
-
-
-papaya.Container.prototype.clearParams = function () {
+  clearParams() {
     this.params = [];
-};
+  };
 
-
-
-papaya.Container.prototype.loadNext = function () {
+  loadNext() {
     if (this.hasImageToLoad()) {
         this.loadNextImage();
     } else if (this.hasSurfaceToLoad()) {
@@ -1137,17 +1356,17 @@ papaya.Container.prototype.loadNext = function () {
     } else if (this.hasAtlasToLoad()) {
         this.viewer.loadAtlas();
     }
-};
+  };
 
-
-
-papaya.Container.prototype.hasMoreToLoad = function () {
+  hasMoreToLoad() {
     return (this.hasImageToLoad() || this.hasSurfaceToLoad() || this.hasAtlasToLoad());
-};
+  };
 
+  hasMoreToLoad() {
+    return (this.hasImageToLoad() || this.hasSurfaceToLoad() || this.hasAtlasToLoad());
+  };
 
-
-papaya.Container.prototype.hasImageToLoad = function () {
+  hasImageToLoad() {
     if (this.params.images) {
         return (this.loadingImageIndex < this.params.images.length);
     } else if(this.params.binaryImages) {
@@ -1159,17 +1378,14 @@ papaya.Container.prototype.hasImageToLoad = function () {
     }
 
     return false;
-};
+  };
 
+  hasAtlasToLoad() {
+    return (Container.atlas == null) && this.viewer.hasDefinedAtlas();
+  };
 
-
-papaya.Container.prototype.hasAtlasToLoad = function () {
-    return (papaya.Container.atlas == null) && this.viewer.hasDefinedAtlas();
-};
-
-
-papaya.Container.prototype.hasSurfaceToLoad = function () {
-    if (!papaya.utilities.PlatformUtils.isWebGLSupported()) {
+  hasSurfaceToLoad() {
+    if (!PlatformUtils.isWebGLSupported()) {
         console.log("Warning: This browser version is not able to load surfaces.");
         return false;
     }
@@ -1181,11 +1397,9 @@ papaya.Container.prototype.hasSurfaceToLoad = function () {
     }
 
     return false;
-};
+  };
 
-
-
-papaya.Container.prototype.loadNextSurface = function () {
+  loadNextSurface() {
     var loadingNext = false, imageRefs;
 
     if (this.params.surfaces) {
@@ -1217,11 +1431,9 @@ papaya.Container.prototype.loadNextSurface = function () {
     }
 
     return loadingNext;
-};
+  };
 
-
-
-papaya.Container.prototype.loadNextImage = function () {
+  loadNextImage() {
     var loadingNext = false, imageRefs;
 
     if (this.params.images) {
@@ -1291,11 +1503,9 @@ papaya.Container.prototype.loadNextImage = function () {
     }
 
     return loadingNext;
-};
+  };
 
-
-
-papaya.Container.prototype.readyForDnD = function () {
+  readyForDnD() {
     return !this.kioskMode && ((this.params.images === undefined) ||
         (this.loadingImageIndex >= this.params.images.length)) &&
         ((this.params.binaryImages === undefined) ||
@@ -1304,11 +1514,9 @@ papaya.Container.prototype.readyForDnD = function () {
         (this.loadingImageIndex >= this.params.encodedImages.length)) &&
         ((this.params.encodedSurfaces === undefined) ||
         (this.loadingSurfaceIndex >= this.params.encodedSurfaces.length));
-};
+  };
 
-
-
-papaya.Container.prototype.findLoadableImage = function (name, surface) {
+  findLoadableImage(name, surface) {
     var ctr;
 
     for (ctr = 0; ctr < papayaLoadableImages.length; ctr += 1) {
@@ -1330,37 +1538,9 @@ papaya.Container.prototype.findLoadableImage = function (name, surface) {
     }
 
     return null;
-};
+  };
 
-
-
-papaya.Container.prototype.findLoadableImages = function (refs, surface) {
-    var ctr, loadable, loadables = [];
-
-    if (!Array.isArray(refs)) {
-        refs = [refs];
-    }
-
-    if (refs) {
-        for (ctr = 0; ctr < refs.length; ctr++) {
-            loadable = this.findLoadableImage(refs[ctr], surface);
-
-            if (loadable) {
-                loadables.push(loadable);
-            }
-        }
-    }
-
-    if (loadables.length > 0) {
-        return loadables;
-    }
-
-    return null;
-};
-
-
-
-papaya.Container.prototype.expandViewer = function () {
+  expandViewer() {
     var container = this;
 
     if (this.nestedViewer) {
@@ -1368,7 +1548,7 @@ papaya.Container.prototype.expandViewer = function () {
         this.collapsable = true;
         this.tempScrollTop = $(window).scrollTop();
 
-        $(":hidden").addClass(PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT);
+        $(":hidden").addClass(constant.PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT);
         $(document.body).children().hide();
         this.containerHtml.show();
 
@@ -1385,9 +1565,9 @@ papaya.Container.prototype.expandViewer = function () {
         this.originalStyle.paddingLeft = document.body.style.paddingLeft;
         this.originalStyle.overflow = document.body.style.overflow;
 
-        papaya.Container.setToFullPage();
+        Container.setToFullPage();
 
-        this.containerHtml.after('<div style="display:none" class="' + PAPAYA_CONTAINER_COLLAPSABLE + '"></div>');
+        this.containerHtml.after('<div style="display:none" class="' + constant.PAPAYA_CONTAINER_COLLAPSABLE + '"></div>');
         $(document.body).prepend(this.containerHtml);
 
         this.resizeViewerComponents(true);
@@ -1399,10 +1579,9 @@ papaya.Container.prototype.expandViewer = function () {
             container.viewer.addScroll();
         }, 0);
     }
-};
+  };
 
-
-papaya.Container.prototype.collapseViewer = function () {
+  collapseViewer() {
     var ctr, container;
 
     container = this;
@@ -1423,9 +1602,9 @@ papaya.Container.prototype.collapseViewer = function () {
         document.body.style.paddingLeft = this.originalStyle.paddingLeft;
         document.body.style.overflow = this.originalStyle.overflow;
 
-        $("." + PAPAYA_CONTAINER_COLLAPSABLE).replaceWith(this.containerHtml);
-        $(document.body).children(":not(." + PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT + ")").show();
-        $("." + PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT).removeClass(PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT);
+        $("." + constant.PAPAYA_CONTAINER_COLLAPSABLE).replaceWith(this.containerHtml);
+        $(document.body).children(":not(." + constant.PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT + ")").show();
+        $("." + constant.PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT).removeClass(constant.PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT);
 
         this.resizeViewerComponents(true);
 
@@ -1439,71 +1618,53 @@ papaya.Container.prototype.collapseViewer = function () {
             container.viewer.removeScroll();
         }, 0);
     }
-};
+  };
 
+  isNestedViewer() {
+      return (this.nestedViewer || this.collapsable);
+  };
 
+  isDesktopMode() {
+      return !this.kioskMode;
+  };
 
-papaya.Container.prototype.isNestedViewer = function () {
-    return (this.nestedViewer || this.collapsable);
-};
+  hasLoadedDTI() {
+      return this.viewer.hasLoadedDTI();
+  };
 
+  disableScrollWheel() {
+      return (this.isNestedViewer() || PlatformUtils.ios);
+  };
 
+  canOpenInMango() {
+      return this.params.canOpenInMango;
+  };
 
-papaya.Container.prototype.isDesktopMode = function () {
-    return !this.kioskMode;
-};
+  isExpandable() {
+      return this.params.expandable && this.isNestedViewer();
+  };
 
+  isParametricCombined(index) {
+      return this.combineParametric && this.viewer.hasParametricPair(index);
+  };
 
+  isNonParametricCombined(index) {
+      return !this.isParametricCombined(index);
+  };
 
-papaya.Container.prototype.hasLoadedDTI = function () {
-    return this.viewer.hasLoadedDTI();
-};
-
-
-
-papaya.Container.prototype.disableScrollWheel = function () {
-    return (this.isNestedViewer() || papaya.utilities.PlatformUtils.ios);
-};
-
-
-
-papaya.Container.prototype.canOpenInMango = function () {
-    return this.params.canOpenInMango;
-};
-
-
-
-papaya.Container.prototype.isExpandable = function () {
-    return this.params.expandable && this.isNestedViewer();
-};
-
-
-
-papaya.Container.prototype.isParametricCombined = function (index) {
-    return this.combineParametric && this.viewer.hasParametricPair(index);
-};
-
-
-
-papaya.Container.prototype.isNonParametricCombined = function (index) {
-    return !this.isParametricCombined(index);
-};
-
-
-
-papaya.Container.prototype.coordinateChanged = function (viewer) {
+  coordinateChanged(viewer) {
     var ctr, coorWorld,
         coor = viewer.currentCoord;
 
     if (!viewer.ignoreSync) {
-        if (papaya.Container.syncViewersWorld) {
+        if (Container.syncViewersWorld) {
             for (ctr = 0; ctr < papayaContainers.length; ctr += 1) {
                 if ((papayaContainers[ctr].viewer !== viewer) && !papayaContainers[ctr].viewer.ignoreSync) {
-                    coorWorld = new papaya.core.Coordinate();
+                    coorWorld = new Coordinate();
                     papayaContainers[ctr].viewer.gotoWorldCoordinate(viewer.getWorldCoordinateAtIndex(coor.x, coor.y, coor.z, coorWorld), true);
                 }
             }
-        } else if (papaya.Container.syncViewers) {
+        } else if (Container.syncViewers) {
             for (ctr = 0; ctr < papayaContainers.length; ctr += 1) {
                 if ((papayaContainers[ctr].viewer !== viewer) && !papayaContainers[ctr].viewer.ignoreSync) {
                     papayaContainers[ctr].viewer.gotoCoordinate(coor, true);
@@ -1519,29 +1680,23 @@ papaya.Container.prototype.coordinateChanged = function (viewer) {
     if (this.contextManager && this.contextManager.clearContext) {
         this.contextManager.clearContext();
     }
-};
+  };
 
-
-
-papaya.Container.prototype.canCurrentOverlayLoadNegatives = function () {
+  canCurrentOverlayLoadNegatives() {
     var overlay = this.viewer.currentScreenVolume;
     return (!overlay.negative && (overlay.negativeScreenVol === null));
-};
+  };
 
-
-
-papaya.Container.prototype.canCurrentOverlayLoadMod = function () {
+  canCurrentOverlayLoadMod() {
     var overlay = this.viewer.currentScreenVolume;
     return (overlay.dti && (overlay.dtiVolumeMod === null));
-};
+  };
 
-
-
-papaya.Container.prototype.canCurrentOverlayModulate = function () {
+  canCurrentOverlayModulate() {
     var overlay = this.viewer.currentScreenVolume;
     return (overlay.dti && (overlay.dtiVolumeMod !== null));
-};
-
+  };
+}
 
 
 /*** Window Events ***/

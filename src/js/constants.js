@@ -1,41 +1,41 @@
 
 // Minimum supported browsers
-var PAPAYA_BROWSER_MIN_FIREFOX = 7,
+export var PAPAYA_BROWSER_MIN_FIREFOX = 7,
     PAPAYA_BROWSER_MIN_CHROME = 7,
     PAPAYA_BROWSER_MIN_SAFARI = 6,
     PAPAYA_BROWSER_MIN_IE = 10,
     PAPAYA_BROWSER_MIN_OPERA = 12;
 
-var PAPAYA_SURFACE_BROWSER_MIN_FIREFOX = 7,
+export var PAPAYA_SURFACE_BROWSER_MIN_FIREFOX = 7,
     PAPAYA_SURFACE_BROWSER_MIN_CHROME = 8,
     PAPAYA_SURFACE_BROWSER_MIN_SAFARI = 6,
     PAPAYA_SURFACE_BROWSER_MIN_IE = 11,
     PAPAYA_SURFACE_BROWSER_MIN_OPERA = 12;
 
 // Base CSS classes
-var PAPAYA_CONTAINER_CLASS_NAME = "papaya",
+export var PAPAYA_CONTAINER_CLASS_NAME = "papaya",
     PAPAYA_CONTAINER_COLLAPSABLE = "papaya-collapsable",
     PAPAYA_CONTAINER_COLLAPSABLE_EXEMPT = "papaya-collapsable-exempt",
     PAPAYA_CONTAINER_FULLSCREEN = "papaya-fullscreen";
 
 
 // Viewer CSS classes
-var PAPAYA_VIEWER_CSS = "papaya-viewer";
+export var PAPAYA_VIEWER_CSS = "papaya-viewer";
 
 
 // Toolbar CSS classes
-var PAPAYA_TOOLBAR_CSS = "papaya-toolbar",
+export var PAPAYA_TOOLBAR_CSS = "papaya-toolbar",
     PAPAYA_TITLEBAR_CSS = "papaya-titlebar",
     PAPAYA_SLIDER_CSS = "papaya-slider-slice",
     PAPAYA_KIOSK_CONTROLS_CSS = "papaya-kiosk-controls";
 
 
 // Display CSS classes
-var PAPAYA_DISPLAY_CSS = "papaya-display";
+export var PAPAYA_DISPLAY_CSS = "papaya-display";
 
 
 // Dialog CSS classes
-var PAPAYA_DIALOG_CSS = "papaya-dialog",
+export var PAPAYA_DIALOG_CSS = "papaya-dialog",
     PAPAYA_DIALOG_CONTENT_CSS = "papaya-dialog-content",
     PAPAYA_DIALOG_CONTENT_NOWRAP_CSS = "papaya-dialog-content-nowrap",
     PAPAYA_DIALOG_CONTENT_LABEL_CSS = "papaya-dialog-content-label",
@@ -48,7 +48,7 @@ var PAPAYA_DIALOG_CSS = "papaya-dialog",
 
 
 // Menu CSS classes
-var PAPAYA_MENU_CSS = "papaya-menu",
+export var PAPAYA_MENU_CSS = "papaya-menu",
     PAPAYA_MENU_LABEL_CSS = "papaya-menu-label",
     PAPAYA_MENU_TITLEBAR_CSS = "papaya-menu-titlebar",
     PAPAYA_MENU_ICON_CSS = "papaya-menu-icon",
@@ -64,7 +64,7 @@ var PAPAYA_MENU_CSS = "papaya-menu",
 
 
 // Control CSS classes
-var PAPAYA_CONTROL_INCREMENT_BUTTON_CSS = "papaya-control-increment",
+export var PAPAYA_CONTROL_INCREMENT_BUTTON_CSS = "papaya-control-increment",
     PAPAYA_CONTROL_GOTO_CENTER_BUTTON_CSS = "papaya-control-goto-center",
     PAPAYA_CONTROL_GOTO_ORIGIN_BUTTON_CSS = "papaya-control-goto-origin",
     PAPAYA_CONTROL_SWAP_BUTTON_CSS = "papaya-control-swap",
@@ -80,13 +80,13 @@ var PAPAYA_CONTROL_INCREMENT_BUTTON_CSS = "papaya-control-increment",
 
 
 // Utils CSS classes
-var PAPAYA_UTILS_CHECKFORJS_CSS = "checkForJS",
+export var PAPAYA_UTILS_CHECKFORJS_CSS = "checkForJS",
     PAPAYA_UTILS_UNSUPPORTED_CSS = "papaya-utils-unsupported",
     PAPAYA_UTILS_UNSUPPORTED_MESSAGE_CSS = "papaya-utils-unsupported-message";
 
 
 // Deprecated IDs
-var PAPAYA_DEFAULT_VIEWER_ID  = "papayaViewer",
+export var PAPAYA_DEFAULT_VIEWER_ID  = "papayaViewer",
     PAPAYA_DEFAULT_DISPLAY_ID = "papayaDisplay",
     PAPAYA_DEFAULT_TOOLBAR_ID = "papayaToolbar",
     PAPAYA_DEFAULT_CONTAINER_ID = "papayaContainer",
@@ -94,7 +94,7 @@ var PAPAYA_DEFAULT_VIEWER_ID  = "papayaViewer",
 
 
 // Misc constants
-var PAPAYA_SPACING = 3,
+export var PAPAYA_SPACING = 3,
     PAPAYA_PADDING = 8,
     PAPAYA_CONTAINER_PADDING = 20,
     PAPAYA_CONTAINER_PADDING_TOP = PAPAYA_CONTAINER_PADDING,
@@ -102,5 +102,5 @@ var PAPAYA_SPACING = 3,
     PAPAYA_CUSTOM_PROTOCOL = "mango";
 
 // GZIP constants
-var GUNZIP_MAGIC_COOKIE1 = 31,
+export var GUNZIP_MAGIC_COOKIE1 = 31,
     GUNZIP_MAGIC_COOKIE2 = 139;
