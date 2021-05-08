@@ -2,18 +2,18 @@
 /*jslint browser: true, node: true */
 /*global */
 
-"use strict";
+"use strict"
 
-/*** Imports ***/
-var papaya = papaya || {};
-papaya.volume = papaya.volume || {};
+import { StringUtils } from "../utilities"
 
+export class ImageDescription {
+  /*** Constructor ***/
+  constructor(notes) {
+    this.notes = "(none)"
 
-/*** Constructor ***/
-papaya.volume.ImageDescription = papaya.volume.ImageDescription || function (notes) {
-    this.notes = "(none)";
-
-    if (!papaya.utilities.StringUtils.isStringBlank(notes)) {
-        this.notes = notes;
+    if (!StringUtils.isStringBlank(notes)) {
+      this.notes = notes
     }
-};
+  };
+
+}

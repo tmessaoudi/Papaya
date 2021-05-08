@@ -2,405 +2,366 @@
 /*jslint browser: true, node: true */
 /*global numeric, nifti */
 
-"use strict";
+"use strict"
 
-/*** Imports ***/
-var papaya = papaya || {};
-papaya.volume = papaya.volume || {};
-papaya.volume.nifti = papaya.volume.nifti || {};
+import $ from "../../../../lib/jquery"
+import nifti from "../../../../lib/nifti-reader"
 
-
-/*** Constructor ***/
-papaya.volume.nifti.HeaderNIFTI = papaya.volume.nifti.HeaderNIFTI || function () {
-    this.nifti = null;
-    this.isNIFTI2 = false;
-    this.compressed = false;
-    this.ext = null;
-    this.imageData = null;
-};
+import { Header, ImageDescription, ImageDimensions, ImageRange, ImageType, Orientation, Transform, VoxelDimensions } from "../"
+import { Coordinate } from "../../core"
+import { StringUtils } from "../../utilities"
 
 
-/*** Static Pseudo-constants ***/
 
-papaya.volume.nifti.HeaderNIFTI.ORIENTATION_DEFAULT = "XYZ-++";
-papaya.volume.nifti.HeaderNIFTI.SPATIAL_UNITS_MASK = 0x07;
-papaya.volume.nifti.HeaderNIFTI.TEMPORAL_UNITS_MASK = 0x38;
+export class HeaderNIFTI {
+  constructor() {
+    this.nifti = null
+    this.isNIFTI2 = false
+    this.compressed = false
+    this.ext = null
+    this.imageData = null
+  };
 
 
-/*** Static Methods ***/
+  /*** Static Pseudo-constants ***/
 
-papaya.volume.nifti.HeaderNIFTI.isThisFormat = function (filename, data) {
+  static ORIENTATION_DEFAULT = "XYZ-++"
+  static SPATIAL_UNITS_MASK = 0x07
+  static TEMPORAL_UNITS_MASK = 0x38
+
+
+  /*** Static Methods ***/
+
+  static isThisFormat(filename, data) {
     if (filename.indexOf(".nii") !== -1) {
-        return true;
+      return true
     }
 
-    return nifti.isNIFTI(data[0]);
-};
+    return nifti.isNIFTI(data[0])
+  }
 
 
-/*** Prototype Methods ***/
+  /*** Prototype Methods ***/
 
-papaya.volume.nifti.HeaderNIFTI.prototype.readHeaderData = function (data, progressMeter, dialogHandler,
-                                                                     onFinishedHeaderRead) {
-    this.nifti = nifti.readHeader(data[0]);
-    this.isNIFTI2 = nifti.isNIFTI2(data[0]);
+  readHeaderData(data, progressMeter, dialogHandler,
+    onFinishedHeaderRead) {
+    this.nifti = nifti.readHeader(data[0])
+    this.isNIFTI2 = nifti.isNIFTI2(data[0])
 
     try {
-        if (nifti.hasExtension(this.nifti)) {
-            this.ext = nifti.readExtensionData(this.nifti, data[0]);
-        }
+      if (nifti.hasExtension(this.nifti)) {
+        this.ext = nifti.readExtensionData(this.nifti, data[0])
+      }
     } catch (err) {
-        console.log("Problem reading NIFTI extension.")
+      console.log("Problem reading NIFTI extension.")
     }
 
-    this.imageData = nifti.readImage(this.nifti, data[0]);
-    onFinishedHeaderRead();
-};
+    this.imageData = nifti.readImage(this.nifti, data[0])
+    onFinishedHeaderRead()
+  }
 
+  readImageData(progressMeter, onFinishedImageRead) {
+    onFinishedImageRead(this.imageData)
+    this.imageData = null
+  }
 
+  getImageDimensions() {
+    var id = new ImageDimensions(this.nifti.dims[1], this.nifti.dims[2], this.nifti.dims[3],
+      this.nifti.dims[4])
+    id.dataOffsets[0] = this.nifti.vox_offset
+    id.dataLengths[0] = (id.getNumVoxelsSeries() * (this.nifti.numBitsPerVoxel / 8))
 
-papaya.volume.nifti.HeaderNIFTI.prototype.readImageData = function (progressMeter, onFinishedImageRead) {
-    onFinishedImageRead(this.imageData);
-    this.imageData = null;
-};
+    return id
+  }
 
+  getName() {
+    return null
+  }
 
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getImageDimensions = function () {
-    var id = new papaya.volume.ImageDimensions(this.nifti.dims[1], this.nifti.dims[2], this.nifti.dims[3],
-        this.nifti.dims[4]);
-    id.dataOffsets[0] = this.nifti.vox_offset;
-    id.dataLengths[0] = (id.getNumVoxelsSeries() * (this.nifti.numBitsPerVoxel / 8));
-
-    return id;
-};
-
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getName = function () {
-    return null;
-};
-
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getSeriesLabels = function () {
-    var seriesLabels = null;
+  getSeriesLabels() {
+    var seriesLabels = null
 
     if (this.ext) {
-        try {
-            var xml = papaya.utilities.StringUtils.arrayBufferToString(this.ext).replace(/[^\x20-\x7F]/g, "").trim();
-            var xmlDoc = $.parseXML(xml),
-                $xml = $(xmlDoc),
-                $vol = $xml.find("MangoVolume");
+      try {
+        var xml = StringUtils.arrayBufferToString(this.ext).replace(/[^\x20-\x7F]/g, "").trim()
+        var xmlDoc = $.parseXML(xml),
+          $xml = $(xmlDoc),
+          $vol = $xml.find("MangoVolume")
 
-            if ($vol.length) {
-                var $series = $vol.find("Series");
-                if ($series.length) {
-                    var $points = $series.find("Point");
-                    var length = $series.attr("length");
-                    seriesLabels = new Array(length);
-                    $points.each(function () {
-                        var index = $(this).attr("index"),
-                            label = $(this).attr("name");
-                        seriesLabels[parseInt(index)] = label;
-                    });
-                }
-            }
-        } catch (err) {
-            console.log("Unrecognized NIFTI extension found.")
+        if ($vol.length) {
+          var $series = $vol.find("Series")
+          if ($series.length) {
+            var $points = $series.find("Point")
+            var length = $series.attr("length")
+            seriesLabels = new Array(length)
+            $points.each(function () {
+              var index = $(this).attr("index"),
+                label = $(this).attr("name")
+              seriesLabels[parseInt(index)] = label
+            })
+          }
         }
+      } catch (err) {
+        console.log("Unrecognized NIFTI extension found.")
+      }
     }
 
-    return seriesLabels;
-};
+    return seriesLabels
+  }
 
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getVoxelDimensions = function () {
+  getVoxelDimensions() {
     /*jslint bitwise: true */
-    var vd;
+    var vd
 
-    vd = new papaya.volume.VoxelDimensions(this.nifti.pixDims[1], this.nifti.pixDims[2], this.nifti.pixDims[3],
-        this.nifti.pixDims[4]);
+    vd = new VoxelDimensions(this.nifti.pixDims[1], this.nifti.pixDims[2], this.nifti.pixDims[3],
+      this.nifti.pixDims[4])
 
-    vd.spatialUnit = (this.nifti.xyzt_units & papaya.volume.nifti.HeaderNIFTI.SPATIAL_UNITS_MASK);
-    vd.temporalUnit = (this.nifti.xyzt_units & papaya.volume.nifti.HeaderNIFTI.TEMPORAL_UNITS_MASK);
-    vd.flip = (this.nifti.pixDims[0] === -1);
+    vd.spatialUnit = (this.nifti.xyzt_units & HeaderNIFTI.SPATIAL_UNITS_MASK)
+    vd.temporalUnit = (this.nifti.xyzt_units & HeaderNIFTI.TEMPORAL_UNITS_MASK)
+    vd.flip = (this.nifti.pixDims[0] === -1)
 
-    return vd;
-};
+    return vd
+  }
 
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getImageType = function () {
-    var datatype = papaya.volume.ImageType.DATATYPE_UNKNOWN;
+  getImageType() {
+    var datatype = ImageType.DATATYPE_UNKNOWN
 
     if ((this.nifti.datatypeCode === nifti.NIFTI1.TYPE_UINT8) ||
-        (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_UINT16) ||
-        (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_UINT32) ||
-        (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_UINT64)) {
-        datatype = papaya.volume.ImageType.DATATYPE_INTEGER_UNSIGNED;
+      (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_UINT16) ||
+      (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_UINT32) ||
+      (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_UINT64)) {
+      datatype = ImageType.DATATYPE_INTEGER_UNSIGNED
     } else if ((this.nifti.datatypeCode === nifti.NIFTI1.TYPE_INT8) ||
-        (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_INT16) ||
-        (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_INT32) ||
-        (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_INT64)) {
-        datatype = papaya.volume.ImageType.DATATYPE_INTEGER_SIGNED;
+      (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_INT16) ||
+      (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_INT32) ||
+      (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_INT64)) {
+      datatype = ImageType.DATATYPE_INTEGER_SIGNED
     } else if ((this.nifti.datatypeCode === nifti.NIFTI1.TYPE_FLOAT32) ||
-        (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_FLOAT64)) {
-        datatype = papaya.volume.ImageType.DATATYPE_FLOAT;
+      (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_FLOAT64)) {
+      datatype = ImageType.DATATYPE_FLOAT
     } else if (this.nifti.datatypeCode === nifti.NIFTI1.TYPE_RGB24) {
-        datatype = papaya.volume.ImageType.DATATYPE_RGB;
+      datatype = ImageType.DATATYPE_RGB
     }
 
-    return new papaya.volume.ImageType(datatype, this.nifti.numBitsPerVoxel / 8, this.nifti.littleEndian,
-        this.compressed);
-};
+    return new ImageType(datatype, this.nifti.numBitsPerVoxel / 8, this.nifti.littleEndian,
+      this.compressed)
+  }
 
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getOrientation = function () {
-    var orientation = null;
+  getOrientation() {
+    var orientation = null
 
     if ((this.nifti.qform_code > 0) && !this.qFormHasRotations()) {
-        orientation = this.getOrientationQform();
+      orientation = this.getOrientationQform()
     }
 
     if ((this.nifti.sform_code > this.nifti.qform_code) && !this.sFormHasRotations()) {
-        orientation = this.getOrientationSform();
+      orientation = this.getOrientationSform()
     }
 
     if (orientation === null) {
-        orientation = papaya.volume.nifti.HeaderNIFTI.ORIENTATION_DEFAULT;
+      orientation = HeaderNIFTI.ORIENTATION_DEFAULT
     }
 
-    return new papaya.volume.Orientation(orientation);
-};
+    return new Orientation(orientation)
+  }
 
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getOrientationQform = function () {
-    var orientation = papaya.volume.nifti.HeaderNIFTI.ORIENTATION_DEFAULT,
-        qFormMatParams = this.nifti.convertNiftiQFormToNiftiSForm(this.nifti.quatern_b, this.nifti.quatern_c,
-            this.nifti.quatern_d, this.nifti.qoffset_x, this.nifti.qoffset_y, this.nifti.qoffset_z,
-            this.nifti.pixDims[1], this.nifti.pixDims[2], this.nifti.pixDims[3], this.nifti.pixDims[0]);
+  getOrientationQform() {
+    var orientation = HeaderNIFTI.ORIENTATION_DEFAULT,
+      qFormMatParams = this.nifti.convertNiftiQFormToNiftiSForm(this.nifti.quatern_b, this.nifti.quatern_c,
+        this.nifti.quatern_d, this.nifti.qoffset_x, this.nifti.qoffset_y, this.nifti.qoffset_z,
+        this.nifti.pixDims[1], this.nifti.pixDims[2], this.nifti.pixDims[3], this.nifti.pixDims[0])
 
     if (this.nifti.qform_code > 0) {
-        orientation = this.nifti.convertNiftiSFormToNEMA(qFormMatParams);
+      orientation = this.nifti.convertNiftiSFormToNEMA(qFormMatParams)
 
-        if (!papaya.volume.Orientation.isValidOrientationString(orientation)) {
-            orientation = papaya.volume.nifti.HeaderNIFTI.ORIENTATION_DEFAULT;
-        }
+      if (!Orientation.isValidOrientationString(orientation)) {
+        orientation = HeaderNIFTI.ORIENTATION_DEFAULT
+      }
     } else {
-        orientation = papaya.volume.nifti.HeaderNIFTI.ORIENTATION_DEFAULT;
+      orientation = HeaderNIFTI.ORIENTATION_DEFAULT
     }
 
-    return orientation;
-};
+    return orientation
+  }
 
+  getOrientationSform() {
+    var orientation = this.nifti.convertNiftiSFormToNEMA(this.nifti.affine)
 
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getOrientationSform = function () {
-    var orientation = this.nifti.convertNiftiSFormToNEMA(this.nifti.affine);
-
-    if (!papaya.volume.Orientation.isValidOrientationString(orientation)) {
-        orientation = papaya.volume.nifti.HeaderNIFTI.ORIENTATION_DEFAULT;
+    if (!Orientation.isValidOrientationString(orientation)) {
+      orientation = HeaderNIFTI.ORIENTATION_DEFAULT
     }
 
-    return orientation;
-};
+    return orientation
+  }
 
+  getQformMatCopy() {
+    return this.nifti.getQformMat().clone()
+  }
 
+  getSformMatCopy() {
+    return this.nifti.affine.clone()
+  }
 
-papaya.volume.nifti.HeaderNIFTI.prototype.getQformMatCopy = function () {
-    return this.nifti.getQformMat().clone();
-};
-
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getSformMatCopy = function () {
-    return this.nifti.affine.clone();
-};
-
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getOrigin = function (forceQ, forceS) {
-    var origin = new papaya.core.Coordinate(0, 0, 0),
-        qFormMatParams,
-        affineQform,
-        affineQformInverse,
-        affineSformInverse,
-        orientation,
-        someOffsets,
-        xyz, sense,
-        xIndex, yIndex, zIndex,
-        xFlip, yFlip, zFlip;
+  getOrigin(forceQ, forceS) {
+    var origin = new Coordinate(0, 0, 0),
+      qFormMatParams,
+      affineQform,
+      affineQformInverse,
+      affineSformInverse,
+      orientation,
+      someOffsets,
+      xyz, sense,
+      xIndex, yIndex, zIndex,
+      xFlip, yFlip, zFlip
 
     if ((this.nifti.qform_code > 0) && !forceS) {
-        if (this.qFormHasRotations()) {
-            affineQform = this.nifti.getQformMat();
-            affineQformInverse = numeric.inv(affineQform);
-            origin.setCoordinate(affineQformInverse[0][3], affineQformInverse[1][3], affineQformInverse[2][3]);
-        } else {
-            qFormMatParams = this.nifti.convertNiftiQFormToNiftiSForm(this.nifti.quatern_b, this.nifti.quatern_c,
-                this.nifti.quatern_d, this.nifti.qoffset_x, this.nifti.qoffset_y, this.nifti.qoffset_z,
-                this.nifti.pixDims[1], this.nifti.pixDims[2], this.nifti.pixDims[3], this.nifti.pixDims[0]);
+      if (this.qFormHasRotations()) {
+        affineQform = this.nifti.getQformMat()
+        affineQformInverse = numeric.inv(affineQform)
+        origin.setCoordinate(affineQformInverse[0][3], affineQformInverse[1][3], affineQformInverse[2][3])
+      } else {
+        qFormMatParams = this.nifti.convertNiftiQFormToNiftiSForm(this.nifti.quatern_b, this.nifti.quatern_c,
+          this.nifti.quatern_d, this.nifti.qoffset_x, this.nifti.qoffset_y, this.nifti.qoffset_z,
+          this.nifti.pixDims[1], this.nifti.pixDims[2], this.nifti.pixDims[3], this.nifti.pixDims[0])
 
-            orientation = this.nifti.convertNiftiSFormToNEMA(qFormMatParams);
+        orientation = this.nifti.convertNiftiSFormToNEMA(qFormMatParams)
 
-            if (!papaya.volume.Orientation.isValidOrientationString(orientation)) {
-                orientation = papaya.volume.nifti.HeaderNIFTI.ORIENTATION_DEFAULT;
-            }
-
-            xyz = orientation.substring(0, 3).toUpperCase();
-            sense = orientation.substring(3);
-            xIndex = xyz.indexOf('X');
-            yIndex = xyz.indexOf('Y');
-            zIndex = xyz.indexOf('Z');
-            xFlip = (sense.charAt(xIndex) === '+');
-            yFlip = (sense.charAt(yIndex) === '+');
-            zFlip = (sense.charAt(zIndex) === '+');
-
-            someOffsets = new Array(3);
-            someOffsets[0] = ((this.nifti.qoffset_x / this.nifti.pixDims[xIndex + 1])) * (xFlip ? -1 : 1);
-            someOffsets[1] = ((this.nifti.qoffset_y / this.nifti.pixDims[yIndex + 1])) * (yFlip ? -1 : 1);
-            someOffsets[2] = ((this.nifti.qoffset_z / this.nifti.pixDims[zIndex + 1])) * (zFlip ? -1 : 1);
-
-            origin.setCoordinate(someOffsets[0], someOffsets[1], someOffsets[2], true);
+        if (!Orientation.isValidOrientationString(orientation)) {
+          orientation = HeaderNIFTI.ORIENTATION_DEFAULT
         }
+
+        xyz = orientation.substring(0, 3).toUpperCase()
+        sense = orientation.substring(3)
+        xIndex = xyz.indexOf('X')
+        yIndex = xyz.indexOf('Y')
+        zIndex = xyz.indexOf('Z')
+        xFlip = (sense.charAt(xIndex) === '+')
+        yFlip = (sense.charAt(yIndex) === '+')
+        zFlip = (sense.charAt(zIndex) === '+')
+
+        someOffsets = new Array(3)
+        someOffsets[0] = ((this.nifti.qoffset_x / this.nifti.pixDims[xIndex + 1])) * (xFlip ? -1 : 1)
+        someOffsets[1] = ((this.nifti.qoffset_y / this.nifti.pixDims[yIndex + 1])) * (yFlip ? -1 : 1)
+        someOffsets[2] = ((this.nifti.qoffset_z / this.nifti.pixDims[zIndex + 1])) * (zFlip ? -1 : 1)
+
+        origin.setCoordinate(someOffsets[0], someOffsets[1], someOffsets[2], true)
+      }
     } else if ((this.nifti.sform_code > 0) && !forceQ) {
-        if (this.sFormHasRotations()) {
-            affineSformInverse = numeric.inv(this.nifti.affine);
-            origin.setCoordinate(affineSformInverse[0][3], affineSformInverse[1][3], affineSformInverse[2][3]);
-        } else {
-            orientation = this.nifti.convertNiftiSFormToNEMA(this.nifti.affine);
+      if (this.sFormHasRotations()) {
+        affineSformInverse = numeric.inv(this.nifti.affine)
+        origin.setCoordinate(affineSformInverse[0][3], affineSformInverse[1][3], affineSformInverse[2][3])
+      } else {
+        orientation = this.nifti.convertNiftiSFormToNEMA(this.nifti.affine)
 
-            if (!papaya.volume.Orientation.isValidOrientationString(orientation)) {
-                orientation = papaya.volume.nifti.HeaderNIFTI.ORIENTATION_DEFAULT;
-            }
-
-            xyz = orientation.substring(0, 3).toUpperCase();
-            sense = orientation.substring(3);
-            xIndex = xyz.indexOf('X');
-            yIndex = xyz.indexOf('Y');
-            zIndex = xyz.indexOf('Z');
-            xFlip = (sense.charAt(xIndex) === '+');
-            yFlip = (sense.charAt(yIndex) === '+');
-            zFlip = (sense.charAt(zIndex) === '+');
-
-            someOffsets = new Array(3);
-            someOffsets[0] = ((this.nifti.affine[0][3] / this.nifti.pixDims[xIndex + 1])) * (xFlip ? -1 : 1);
-            someOffsets[1] = ((this.nifti.affine[1][3] / this.nifti.pixDims[yIndex + 1])) * (yFlip ? -1 : 1);
-            someOffsets[2] = ((this.nifti.affine[2][3] / this.nifti.pixDims[zIndex + 1])) * (zFlip ? -1 : 1);
-
-            origin.setCoordinate(someOffsets[0], someOffsets[1], someOffsets[2], true);
+        if (!Orientation.isValidOrientationString(orientation)) {
+          orientation = HeaderNIFTI.ORIENTATION_DEFAULT
         }
+
+        xyz = orientation.substring(0, 3).toUpperCase()
+        sense = orientation.substring(3)
+        xIndex = xyz.indexOf('X')
+        yIndex = xyz.indexOf('Y')
+        zIndex = xyz.indexOf('Z')
+        xFlip = (sense.charAt(xIndex) === '+')
+        yFlip = (sense.charAt(yIndex) === '+')
+        zFlip = (sense.charAt(zIndex) === '+')
+
+        someOffsets = new Array(3)
+        someOffsets[0] = ((this.nifti.affine[0][3] / this.nifti.pixDims[xIndex + 1])) * (xFlip ? -1 : 1)
+        someOffsets[1] = ((this.nifti.affine[1][3] / this.nifti.pixDims[yIndex + 1])) * (yFlip ? -1 : 1)
+        someOffsets[2] = ((this.nifti.affine[2][3] / this.nifti.pixDims[zIndex + 1])) * (zFlip ? -1 : 1)
+
+        origin.setCoordinate(someOffsets[0], someOffsets[1], someOffsets[2], true)
+      }
     }
 
     if (origin.isAllZeros()) {
-        origin.setCoordinate(this.nifti.dims[1] / 2.0, this.nifti.dims[2] / 2.0, this.nifti.dims[3] / 2.0);
+      origin.setCoordinate(this.nifti.dims[1] / 2.0, this.nifti.dims[2] / 2.0, this.nifti.dims[3] / 2.0)
     }
 
-    return origin;
-};
+    return origin
+  }
 
+  qFormHasRotations() {
+    return Transform.hasRotations(this.getQformMatCopy())
+  }
 
+  sFormHasRotations() {
+    return Transform.hasRotations(this.getSformMatCopy())
+  }
 
-papaya.volume.nifti.HeaderNIFTI.prototype.qFormHasRotations = function () {
-    return papaya.volume.Transform.hasRotations(this.getQformMatCopy());
-};
-
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.sFormHasRotations = function () {
-    return papaya.volume.Transform.hasRotations(this.getSformMatCopy());
-};
-
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getImageRange = function () {
-    var ir = new papaya.volume.ImageRange(this.nifti.cal_min, this.nifti.cal_max),
-        slope = this.nifti.scl_slope,
-        imageDimensions = this.getImageDimensions();
+  getImageRange() {
+    var ir = new ImageRange(this.nifti.cal_min, this.nifti.cal_max),
+      slope = this.nifti.scl_slope,
+      imageDimensions = this.getImageDimensions()
 
     if (slope === 0) {
-        slope = 1;
+      slope = 1
     }
 
-    ir.setGlobalDataScale(slope, this.nifti.scl_inter, imageDimensions.slices * imageDimensions.timepoints);
-    ir.validateDataScale();
+    ir.setGlobalDataScale(slope, this.nifti.scl_inter, imageDimensions.slices * imageDimensions.timepoints)
+    ir.validateDataScale()
 
-    return ir;
-};
+    return ir
+  }
 
+  hasError() {
+    return false
+  }
 
+  getImageDescription() {
+    return new ImageDescription(this.nifti.description)
+  }
 
-papaya.volume.nifti.HeaderNIFTI.prototype.hasError = function () {
-    return false;
-};
+  getOrientationCertainty() {
+    var certainty, origin
 
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getImageDescription = function () {
-    return new papaya.volume.ImageDescription(this.nifti.description);
-};
-
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getOrientationCertainty = function () {
-    var certainty, origin;
-
-    certainty = papaya.volume.Header.ORIENTATION_CERTAINTY_UNKNOWN;
+    certainty = Header.ORIENTATION_CERTAINTY_UNKNOWN
 
     if ((this.nifti.qform_code > 0) || (this.nifti.sform_code > 0)) {
-        certainty = papaya.volume.Header.ORIENTATION_CERTAINTY_LOW;
+      certainty = Header.ORIENTATION_CERTAINTY_LOW
 
-        origin = this.getOrigin();
-        if ((origin !== null) && !origin.isAllZeros()) {
-            certainty = papaya.volume.Header.ORIENTATION_CERTAINTY_HIGH;
-        }
+      origin = this.getOrigin()
+      if ((origin !== null) && !origin.isAllZeros()) {
+        certainty = Header.ORIENTATION_CERTAINTY_HIGH
+      }
     }
 
-    return certainty;
-};
+    return certainty
+  }
 
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getBestTransform = function () {
+  getBestTransform() {
     if ((this.nifti.qform_code > 0) && (this.nifti.qform_code > this.nifti.sform_code) && this.qFormHasRotations()) {
-        return this.getQformMatCopy();
+      return this.getQformMatCopy()
     }
 
     if ((this.nifti.sform_code > 0) && (this.nifti.sform_code >= this.nifti.qform_code) && this.sFormHasRotations()) {
-        return this.getSformMatCopy();
+      return this.getSformMatCopy()
     }
 
-    return null;
-};
+    return null
+  }
 
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.getBestTransformOrigin = function () {
+  getBestTransformOrigin() {
     if ((this.nifti.qform_code > 0) && (this.nifti.qform_code > this.nifti.sform_code) && this.qFormHasRotations()) {
-        return this.getOrigin(true, false);
+      return this.getOrigin(true, false)
     }
 
     if ((this.nifti.sform_code > 0) && (this.nifti.sform_code >= this.nifti.qform_code) && this.sFormHasRotations()) {
-        return this.getOrigin(false, true);
+      return this.getOrigin(false, true)
     }
 
-    return null;
-};
+    return null
+  }
 
-
-
-papaya.volume.nifti.HeaderNIFTI.prototype.toString = function () {
-    var fmt = papaya.utilities.StringUtils.formatNumber,
-        string = "";
+  toString() {
+    var fmt = StringUtils.formatNumber,
+      string = ""
 
     if (this.isNIFTI2) {
-        string += ("<span style='color:#B5CBD3'>Datatype</span>" + "<span style='color:gray'> = </span>" +  this.nifti.datatypeCode + " (" + this.nifti.getDatatypeCodeString(this.nifti.datatypeCode) + ")<br />");
-        string += ("<span style='color:#B5CBD3'>Bits Per Voxel</span>" + "<span style='color:gray'> = </span>" + this.nifti.numBitsPerVoxel + "<br />");
-        string += ("<span style='color:#B5CBD3'>Image Dimensions</span>" + " (1-8): " +
+      string += ("<span style='color:#B5CBD3'>Datatype</span>" + "<span style='color:gray'> = </span>" + this.nifti.datatypeCode + " (" + this.nifti.getDatatypeCodeString(this.nifti.datatypeCode) + ")<br />")
+      string += ("<span style='color:#B5CBD3'>Bits Per Voxel</span>" + "<span style='color:gray'> = </span>" + this.nifti.numBitsPerVoxel + "<br />")
+      string += ("<span style='color:#B5CBD3'>Image Dimensions</span>" + " (1-8): " +
         this.nifti.dims[0] + ", " +
         this.nifti.dims[1] + ", " +
         this.nifti.dims[2] + ", " +
@@ -408,14 +369,14 @@ papaya.volume.nifti.HeaderNIFTI.prototype.toString = function () {
         this.nifti.dims[4] + ", " +
         this.nifti.dims[5] + ", " +
         this.nifti.dims[6] + ", " +
-        this.nifti.dims[7] + "<br />");
+        this.nifti.dims[7] + "<br />")
 
-        string += ("<span style='color:#B5CBD3'>Intent Parameters</span> (1-3): " +
-            this.nifti.intent_p1 + ", " +
-            this.nifti.intent_p2 + ", " +
-            this.nifti.intent_p3) + "<br />";
+      string += ("<span style='color:#B5CBD3'>Intent Parameters</span> (1-3): " +
+        this.nifti.intent_p1 + ", " +
+        this.nifti.intent_p2 + ", " +
+        this.nifti.intent_p3) + "<br />"
 
-        string += ("<span style='color:#B5CBD3'>Voxel Dimensions</span> (1-8): " +
+      string += ("<span style='color:#B5CBD3'>Voxel Dimensions</span> (1-8): " +
         fmt(this.nifti.pixDims[0]) + ", " +
         fmt(this.nifti.pixDims[1]) + ", " +
         fmt(this.nifti.pixDims[2]) + ", " +
@@ -423,95 +384,97 @@ papaya.volume.nifti.HeaderNIFTI.prototype.toString = function () {
         fmt(this.nifti.pixDims[4]) + ", " +
         fmt(this.nifti.pixDims[5]) + ", " +
         fmt(this.nifti.pixDims[6]) + ", " +
-        fmt(this.nifti.pixDims[7]) + "<br />");
+        fmt(this.nifti.pixDims[7]) + "<br />")
 
-        string += ("<span style='color:#B5CBD3'>Image Offset</span>" + "<span style='color:gray'> = </span>" + this.nifti.vox_offset + "<br />");
-        string += ("<span style='color:#B5CBD3'>Data Scale:  Slope</span>" + "<span style='color:gray'> = </span>" + this.nifti.scl_slope + "  <span style='color:#B5CBD3'>Intercept</span>" + "<span style='color:gray'> = </span>" + this.nifti.scl_inter+ "<br />");
-        string += ("<span style='color:#B5CBD3'>Display Range:  Max</span>" + "<span style='color:gray'> = </span>" + this.nifti.cal_max + "  <span style='color:#B5CBD3'>Min</span>" + "<span style='color:gray'> = </span>" + this.nifti.cal_min + "<br />");
-        string += ("<span style='color:#B5CBD3'>Slice Duration</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_duration + "<br />");
-        string += ("<span style='color:#B5CBD3'>Time Axis Shift</span>" + "<span style='color:gray'> = </span>" + this.nifti.toffset + "<br />");
-        string += ("<span style='color:#B5CBD3'>Slice Start</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_start + "<br />");
-        string += ("<span style='color:#B5CBD3'>Slice End</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_end + "<br />");
-        string += ("<span style='color:#B5CBD3'>Description</span>: \"" + this.nifti.description + "\"<br />");
-        string += ("<span style='color:#B5CBD3'>Auxiliary File</span>: \"" + this.nifti.aux_file + "\"<br />");
-        string += ("<span style='color:#B5CBD3'>Q-Form Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.qform_code + " (" + this.nifti.getTransformCodeString(this.nifti.qform_code) + ")<br />");
-        string += ("<span style='color:#B5CBD3'>S-Form Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.sform_code + " (" + this.nifti.getTransformCodeString(this.nifti.sform_code) + ")<br />");
-        string += ("<span style='color:#B5CBD3'>Quaternion Parameters</span>:  " +
+      string += ("<span style='color:#B5CBD3'>Image Offset</span>" + "<span style='color:gray'> = </span>" + this.nifti.vox_offset + "<br />")
+      string += ("<span style='color:#B5CBD3'>Data Scale:  Slope</span>" + "<span style='color:gray'> = </span>" + this.nifti.scl_slope + "  <span style='color:#B5CBD3'>Intercept</span>" + "<span style='color:gray'> = </span>" + this.nifti.scl_inter + "<br />")
+      string += ("<span style='color:#B5CBD3'>Display Range:  Max</span>" + "<span style='color:gray'> = </span>" + this.nifti.cal_max + "  <span style='color:#B5CBD3'>Min</span>" + "<span style='color:gray'> = </span>" + this.nifti.cal_min + "<br />")
+      string += ("<span style='color:#B5CBD3'>Slice Duration</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_duration + "<br />")
+      string += ("<span style='color:#B5CBD3'>Time Axis Shift</span>" + "<span style='color:gray'> = </span>" + this.nifti.toffset + "<br />")
+      string += ("<span style='color:#B5CBD3'>Slice Start</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_start + "<br />")
+      string += ("<span style='color:#B5CBD3'>Slice End</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_end + "<br />")
+      string += ("<span style='color:#B5CBD3'>Description</span>: \"" + this.nifti.description + "\"<br />")
+      string += ("<span style='color:#B5CBD3'>Auxiliary File</span>: \"" + this.nifti.aux_file + "\"<br />")
+      string += ("<span style='color:#B5CBD3'>Q-Form Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.qform_code + " (" + this.nifti.getTransformCodeString(this.nifti.qform_code) + ")<br />")
+      string += ("<span style='color:#B5CBD3'>S-Form Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.sform_code + " (" + this.nifti.getTransformCodeString(this.nifti.sform_code) + ")<br />")
+      string += ("<span style='color:#B5CBD3'>Quaternion Parameters</span>:  " +
         "<span style='color:#B5CBD3'>b</span> <span style='color:gray'>=</span> " + fmt(this.nifti.quatern_b) + "  " +
         "<span style='color:#B5CBD3'>c</span> <span style='color:gray'>=</span> " + fmt(this.nifti.quatern_c) + "  " +
-        "<span style='color:#B5CBD3'>d</span> <span style='color:gray'>=</span> " + fmt(this.nifti.quatern_d) + "<br />");
+        "<span style='color:#B5CBD3'>d</span> <span style='color:gray'>=</span> " + fmt(this.nifti.quatern_d) + "<br />")
 
-        string += ("<span style='color:#B5CBD3'>Quaternion Offsets</span>:  " +
+      string += ("<span style='color:#B5CBD3'>Quaternion Offsets</span>:  " +
         "<span style='color:#B5CBD3'>x</span> <span style='color:gray'>=</span> " + this.nifti.qoffset_x + "  " +
         "<span style='color:#B5CBD3'>y</span> <span style='color:gray'>=</span> " + this.nifti.qoffset_y + "  " +
-        "<span style='color:#B5CBD3'>z</span> <span style='color:gray'>=</span> " + this.nifti.qoffset_z + "<br />");
+        "<span style='color:#B5CBD3'>z</span> <span style='color:gray'>=</span> " + this.nifti.qoffset_z + "<br />")
 
-        string += ("<span style='color:#B5CBD3'>S-Form Parameters X</span>: " +
+      string += ("<span style='color:#B5CBD3'>S-Form Parameters X</span>: " +
         fmt(this.nifti.affine[0][0]) + ", " +
         fmt(this.nifti.affine[0][1]) + ", " +
         fmt(this.nifti.affine[0][2]) + ", " +
-        fmt(this.nifti.affine[0][3]) + "<br />");
+        fmt(this.nifti.affine[0][3]) + "<br />")
 
-        string += ("<span style='color:#B5CBD3'>S-Form Parameters Y</span>: " +
+      string += ("<span style='color:#B5CBD3'>S-Form Parameters Y</span>: " +
         fmt(this.nifti.affine[1][0]) + ", " +
         fmt(this.nifti.affine[1][1]) + ", " +
         fmt(this.nifti.affine[1][2]) + ", " +
-        fmt(this.nifti.affine[1][3]) + "<br />");
+        fmt(this.nifti.affine[1][3]) + "<br />")
 
-        string += ("<span style='color:#B5CBD3'>S-Form Parameters Z</span>: " +
+      string += ("<span style='color:#B5CBD3'>S-Form Parameters Z</span>: " +
         fmt(this.nifti.affine[2][0]) + ", " +
         fmt(this.nifti.affine[2][1]) + ", " +
         fmt(this.nifti.affine[2][2]) + ", " +
-        fmt(this.nifti.affine[2][3]) + "<br />");
+        fmt(this.nifti.affine[2][3]) + "<br />")
 
-        string += ("<span style='color:#B5CBD3'>Slice Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_code + "<br />");
-        string += ("<span style='color:#B5CBD3'>Units Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.xyzt_units + " (" + this.nifti.getUnitsCodeString(nifti.NIFTI1.SPATIAL_UNITS_MASK & this.nifti.xyzt_units) + ", " + this.nifti.getUnitsCodeString(nifti.NIFTI1.TEMPORAL_UNITS_MASK & this.nifti.xyzt_units) + ")<br />");
-        string += ("<span style='color:#B5CBD3'>Intent Code </span>" + "<span style='color:gray'> = </span>" + this.nifti.intent_code + "<br />");
-        string += ("<span style='color:#B5CBD3'>Intent Name</span>: \"" + this.nifti.intent_name + "\"<br />");
+      string += ("<span style='color:#B5CBD3'>Slice Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_code + "<br />")
+      string += ("<span style='color:#B5CBD3'>Units Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.xyzt_units + " (" + this.nifti.getUnitsCodeString(nifti.NIFTI1.SPATIAL_UNITS_MASK & this.nifti.xyzt_units) + ", " + this.nifti.getUnitsCodeString(nifti.NIFTI1.TEMPORAL_UNITS_MASK & this.nifti.xyzt_units) + ")<br />")
+      string += ("<span style='color:#B5CBD3'>Intent Code </span>" + "<span style='color:gray'> = </span>" + this.nifti.intent_code + "<br />")
+      string += ("<span style='color:#B5CBD3'>Intent Name</span>: \"" + this.nifti.intent_name + "\"<br />")
 
-        string += ("<span style='color:#B5CBD3'>Dim Info </span>" + "<span style='color:gray'> = </span>" + this.nifti.dim_info + "<br />");
+      string += ("<span style='color:#B5CBD3'>Dim Info </span>" + "<span style='color:gray'> = </span>" + this.nifti.dim_info + "<br />")
     } else {
-        string += ("<span style='color:#B5CBD3'>Dim Info</span>" + "<span style='color:gray'> = </span>" + this.nifti.dim_info + "<br />");
+      string += ("<span style='color:#B5CBD3'>Dim Info</span>" + "<span style='color:gray'> = </span>" + this.nifti.dim_info + "<br />")
 
-        string += ("<span style='color:#B5CBD3'>Image Dimensions</span>" + " (1-8): " + this.nifti.dims[0] + ", " + this.nifti.dims[1] + ", " +
+      string += ("<span style='color:#B5CBD3'>Image Dimensions</span>" + " (1-8): " + this.nifti.dims[0] + ", " + this.nifti.dims[1] + ", " +
         this.nifti.dims[2] + ", " + this.nifti.dims[3] + ", " + this.nifti.dims[4] + ", " + this.nifti.dims[5] + ", " +
-        this.nifti.dims[6] + ", " + this.nifti.dims[7] + "<br />");
-        string += ("<span style='color:#B5CBD3'>Intent Parameters</span>" + " (1-3): " + this.nifti.intent_p1 + ", " + this.nifti.intent_p2 + ", " +
-            this.nifti.intent_p3) + "<br />";
-        string += ("<span style='color:#B5CBD3'>Intent Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.intent_code + "<br />");
-        string += ("<span style='color:#B5CBD3'>Datatype</span>" + "<span style='color:gray'> = </span>" + this.nifti.datatypeCode + " (" + this.nifti.getDatatypeCodeString(this.nifti.datatypeCode) + ")<br />");
-        string += ("<span style='color:#B5CBD3'>Bits Per Voxel</span>" + "<span style='color:gray'> = </span>" + this.nifti.numBitsPerVoxel + "<br />");
-        string += ("<span style='color:#B5CBD3'>Slice Start</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_start + "<br />");
-        string += ("<span style='color:#B5CBD3'>Voxel Dimensions</span>" + " (1-8): " + fmt(this.nifti.pixDims[0]) + ", " + fmt(this.nifti.pixDims[1]) + ", " +
+        this.nifti.dims[6] + ", " + this.nifti.dims[7] + "<br />")
+      string += ("<span style='color:#B5CBD3'>Intent Parameters</span>" + " (1-3): " + this.nifti.intent_p1 + ", " + this.nifti.intent_p2 + ", " +
+        this.nifti.intent_p3) + "<br />"
+      string += ("<span style='color:#B5CBD3'>Intent Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.intent_code + "<br />")
+      string += ("<span style='color:#B5CBD3'>Datatype</span>" + "<span style='color:gray'> = </span>" + this.nifti.datatypeCode + " (" + this.nifti.getDatatypeCodeString(this.nifti.datatypeCode) + ")<br />")
+      string += ("<span style='color:#B5CBD3'>Bits Per Voxel</span>" + "<span style='color:gray'> = </span>" + this.nifti.numBitsPerVoxel + "<br />")
+      string += ("<span style='color:#B5CBD3'>Slice Start</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_start + "<br />")
+      string += ("<span style='color:#B5CBD3'>Voxel Dimensions</span>" + " (1-8): " + fmt(this.nifti.pixDims[0]) + ", " + fmt(this.nifti.pixDims[1]) + ", " +
         fmt(this.nifti.pixDims[2]) + ", " + fmt(this.nifti.pixDims[3]) + ", " + fmt(this.nifti.pixDims[4]) + ", " +
-        fmt(this.nifti.pixDims[5]) + ", " + fmt(this.nifti.pixDims[6]) + ", " + fmt(this.nifti.pixDims[7]) + "<br />");
-        string += ("<span style='color:#B5CBD3'>Image Offset</span>" + "<span style='color:gray'> = </span>" + this.nifti.vox_offset + "<br />");
-        string += ("<span style='color:#B5CBD3'>Data Scale</span>" + ":  <span style='color:#B5CBD3'>Slope</span> = " + this.nifti.scl_slope + "  <span style='color:#B5CBD3'>Intercept</span> = " + this.nifti.scl_inter + "<br />");
-        string += ("<span style='color:#B5CBD3'>Slice End</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_end + "<br />");
-        string += ("<span style='color:#B5CBD3'>Slice Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_code + "<br />");
-        string += ("<span style='color:#B5CBD3'>Units Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.xyzt_units + " (" + this.nifti.getUnitsCodeString(nifti.NIFTI1.SPATIAL_UNITS_MASK & this.nifti.xyzt_units) + ", " + this.nifti.getUnitsCodeString(nifti.NIFTI1.TEMPORAL_UNITS_MASK & this.nifti.xyzt_units) + ")<br />");
-        string += ("<span style='color:#B5CBD3'>Display Range</span>" + ":  <span style='color:#B5CBD3'>Max</span>" + "<span style='color:gray'> = </span>" + this.nifti.cal_max + "  <span style='color:#B5CBD3'>Min</span>" + "<span style='color:gray'> = </span>" + this.nifti.cal_min + "<br />");
-        string += ("<span style='color:#B5CBD3'>Slice Duration</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_duration + "<br />");
-        string += ("<span style='color:#B5CBD3'>Time Axis Shift</span>" + "<span style='color:gray'> = </span>" + this.nifti.toffset + "<br />");
-        string += ("<span style='color:#B5CBD3'>Description</span>" + ": \"" + this.nifti.description + "\"<br />");
-        string += ("<span style='color:#B5CBD3'>Auxiliary File</span>" + ": \"" + this.nifti.aux_file + "\"<br />");
-        string += ("<span style='color:#B5CBD3'>Q-Form Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.qform_code + " (" + this.nifti.getTransformCodeString(this.nifti.qform_code) + ")<br />");
-        string += ("<span style='color:#B5CBD3'>S-Form Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.sform_code + " (" + this.nifti.getTransformCodeString(this.nifti.sform_code) + ")<br />");
-        string += ("<span style='color:#B5CBD3'>Quaternion Parameters</span>" + ":  <span style='color:#B5CBD3'>b</span>" + "<span style='color:gray'> = </span>" + fmt(this.nifti.quatern_b) +
+        fmt(this.nifti.pixDims[5]) + ", " + fmt(this.nifti.pixDims[6]) + ", " + fmt(this.nifti.pixDims[7]) + "<br />")
+      string += ("<span style='color:#B5CBD3'>Image Offset</span>" + "<span style='color:gray'> = </span>" + this.nifti.vox_offset + "<br />")
+      string += ("<span style='color:#B5CBD3'>Data Scale</span>" + ":  <span style='color:#B5CBD3'>Slope</span> = " + this.nifti.scl_slope + "  <span style='color:#B5CBD3'>Intercept</span> = " + this.nifti.scl_inter + "<br />")
+      string += ("<span style='color:#B5CBD3'>Slice End</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_end + "<br />")
+      string += ("<span style='color:#B5CBD3'>Slice Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_code + "<br />")
+      string += ("<span style='color:#B5CBD3'>Units Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.xyzt_units + " (" + this.nifti.getUnitsCodeString(nifti.NIFTI1.SPATIAL_UNITS_MASK & this.nifti.xyzt_units) + ", " + this.nifti.getUnitsCodeString(nifti.NIFTI1.TEMPORAL_UNITS_MASK & this.nifti.xyzt_units) + ")<br />")
+      string += ("<span style='color:#B5CBD3'>Display Range</span>" + ":  <span style='color:#B5CBD3'>Max</span>" + "<span style='color:gray'> = </span>" + this.nifti.cal_max + "  <span style='color:#B5CBD3'>Min</span>" + "<span style='color:gray'> = </span>" + this.nifti.cal_min + "<br />")
+      string += ("<span style='color:#B5CBD3'>Slice Duration</span>" + "<span style='color:gray'> = </span>" + this.nifti.slice_duration + "<br />")
+      string += ("<span style='color:#B5CBD3'>Time Axis Shift</span>" + "<span style='color:gray'> = </span>" + this.nifti.toffset + "<br />")
+      string += ("<span style='color:#B5CBD3'>Description</span>" + ": \"" + this.nifti.description + "\"<br />")
+      string += ("<span style='color:#B5CBD3'>Auxiliary File</span>" + ": \"" + this.nifti.aux_file + "\"<br />")
+      string += ("<span style='color:#B5CBD3'>Q-Form Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.qform_code + " (" + this.nifti.getTransformCodeString(this.nifti.qform_code) + ")<br />")
+      string += ("<span style='color:#B5CBD3'>S-Form Code</span>" + "<span style='color:gray'> = </span>" + this.nifti.sform_code + " (" + this.nifti.getTransformCodeString(this.nifti.sform_code) + ")<br />")
+      string += ("<span style='color:#B5CBD3'>Quaternion Parameters</span>" + ":  <span style='color:#B5CBD3'>b</span>" + "<span style='color:gray'> = </span>" + fmt(this.nifti.quatern_b) +
         "  <span style='color:#B5CBD3'>c</span>" + "<span style='color:gray'> = </span>" +
         fmt(this.nifti.quatern_c) +
-        "  <span style='color:#B5CBD3'>d</span>" + "<span style='color:gray'> = </span>" + fmt(this.nifti.quatern_d) + "<br />");
-        string += ("<span style='color:#B5CBD3'>Quaternion Offsets</span>" + ":  <span style='color:#B5CBD3'>x</span>" + "<span style='color:gray'> = </span>" + this.nifti.qoffset_x + "  <span style='color:#B5CBD3'>y</span>" + "<span style='color:gray'> = </span>" +
+        "  <span style='color:#B5CBD3'>d</span>" + "<span style='color:gray'> = </span>" + fmt(this.nifti.quatern_d) + "<br />")
+      string += ("<span style='color:#B5CBD3'>Quaternion Offsets</span>" + ":  <span style='color:#B5CBD3'>x</span>" + "<span style='color:gray'> = </span>" + this.nifti.qoffset_x + "  <span style='color:#B5CBD3'>y</span>" + "<span style='color:gray'> = </span>" +
         this.nifti.qoffset_y + "  <span style='color:#B5CBD3'>z</span>" + "<span style='color:gray'> = </span>" +
-        this.nifti.qoffset_z + "<br />");
-        string += ("<span style='color:#B5CBD3'>S-Form Parameters X</span>" + ": " + fmt(this.nifti.affine[0][0]) + ", " + fmt(this.nifti.affine[0][1]) + ", " +
-        fmt(this.nifti.affine[0][2]) + ", " + fmt(this.nifti.affine[0][3]) + "<br />");
-        string += ("<span style='color:#B5CBD3'>S-Form Parameters Y</span>" + ": " + fmt(this.nifti.affine[1][0]) + ", " + fmt(this.nifti.affine[1][1]) + ", " +
-        fmt(this.nifti.affine[1][2]) + ", " + fmt(this.nifti.affine[1][3]) + "<br />");
-        string += ("<span style='color:#B5CBD3'>S-Form Parameters Z</span>" + ": " + fmt(this.nifti.affine[2][0]) + ", " + fmt(this.nifti.affine[2][1]) + ", " +
-        fmt(this.nifti.affine[2][2]) + ", " + fmt(this.nifti.affine[2][3]) + "<br />");
-        string += ("<span style='color:#B5CBD3'>Intent Name</span>" + ": \"" + this.nifti.intent_name + "\"<br />");
+        this.nifti.qoffset_z + "<br />")
+      string += ("<span style='color:#B5CBD3'>S-Form Parameters X</span>" + ": " + fmt(this.nifti.affine[0][0]) + ", " + fmt(this.nifti.affine[0][1]) + ", " +
+        fmt(this.nifti.affine[0][2]) + ", " + fmt(this.nifti.affine[0][3]) + "<br />")
+      string += ("<span style='color:#B5CBD3'>S-Form Parameters Y</span>" + ": " + fmt(this.nifti.affine[1][0]) + ", " + fmt(this.nifti.affine[1][1]) + ", " +
+        fmt(this.nifti.affine[1][2]) + ", " + fmt(this.nifti.affine[1][3]) + "<br />")
+      string += ("<span style='color:#B5CBD3'>S-Form Parameters Z</span>" + ": " + fmt(this.nifti.affine[2][0]) + ", " + fmt(this.nifti.affine[2][1]) + ", " +
+        fmt(this.nifti.affine[2][2]) + ", " + fmt(this.nifti.affine[2][3]) + "<br />")
+      string += ("<span style='color:#B5CBD3'>Intent Name</span>" + ": \"" + this.nifti.intent_name + "\"<br />")
     }
 
-    return string;
-};
+    return string
+  }
+
+}
