@@ -4,6 +4,8 @@
 
 "use strict"
 
+import $ from "../../../lib/jquery"
+
 import { Header, ImageData, Transform } from "."
 import { Coordinate } from "../core"
 import { ArrayUtils, ObjectUtils, PlatformUtils } from "../utilities"

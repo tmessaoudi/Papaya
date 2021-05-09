@@ -2,22 +2,26 @@
 /*jslint browser: true, node: true */
 /*global $, PAPAYA_MENU_UNSELECTABLE, PAPAYA_MENU_SPACER_CSS */
 
-"use strict";
+"use strict"
 
-/*** Imports ***/
-var papaya = papaya || {};
-papaya.ui = papaya.ui || {};
-
-
-/*** Constructor ***/
-papaya.ui.MenuItemSpacer = papaya.ui.MenuItemSpacer || function () {};
+import $ from "../../../lib/jquery"
+import * as constant from "../constants"
 
 
-/*** Prototype Methods ***/
+export class MenuItemSpacer {
+  /*** Constructor ***/
+  constructor() { };
 
-papaya.ui.MenuItemSpacer.prototype.buildHTML = function (parentId) {
-    var html;
 
-    html = "<div class='" + PAPAYA_MENU_SPACER_CSS + " " + PAPAYA_MENU_UNSELECTABLE + "'></div>";
-    $("#" + parentId).append(html);
-};
+  /*** Prototype Methods ***/
+
+  buildHTML(parentId) {
+    var html
+
+    html = "<div class='" + constant.PAPAYA_MENU_SPACER_CSS + " " + constant.PAPAYA_MENU_UNSELECTABLE + "'></div>"
+    $("#" + parentId).append(html)
+  };
+
+
+}
+
